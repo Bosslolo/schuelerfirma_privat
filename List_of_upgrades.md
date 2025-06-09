@@ -65,7 +65,7 @@ New Features to Add:
 3. User Features:
     - Add favorite drinks feature.
     - Add notifications for monthly invoices.
-    - Implement a points/rewards system. -
+    - Implement a points/rewards system. ✅
 
 4. Admin Features:
     - Add Admin Panel (described in picture Schülerfirma Admin Dashboard.pdf) ---
@@ -87,6 +87,6 @@ New Features to Add:
 
 7. Business Features:
     - Add cost tracking. -
-    - Implement automated invoicing. ---
+    - Implement automated invoicing. ✅
     - Add payment processing. -
     - (Implement loyalty program)
