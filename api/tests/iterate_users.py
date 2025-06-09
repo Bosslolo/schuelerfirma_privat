@@ -10,8 +10,8 @@ def send_request(PageIndex, courseId, courseProfileId, searchText, access_token)
                  f"&access_token={access_token}").text
 
 def create_new_list():
-    courseProfileId = input("Would you like to filter for specific user roles? Please enter the RoleId (leave bank if not): ")
-    searchText = input("Would you like to search for specific user? Please enter the search text (leave bank if not): ")
+    courseProfileId = input("Would you like to filter for specific user roles? Please enter the RoleId (leave blank if not): ")
+    searchText = input("Would you like to search for specific user? Please enter the search text (leave blank if not): ")
     courseId = input("Please enter the course ID (Lernlandschaft 6 is 1083): ")
     access_token = input("Please enter your access token: ")
     access_token = "efrUyUQbyFJIzeylZV6bZMLwhI6lgg1jeGy2xqEBS9evA9MkYErd3bOIDwuU1wTx0OZLT3tFcW1-K-NS8WO5JbdQnf4HmWj6VFjtrniDt7AyDkim1_ZTDt-TXtBqxy-B"
