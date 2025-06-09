@@ -36,15 +36,14 @@ def verify_pin(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.
             elif fullName and type(fullName) is str: 
                 cursor.execute("SELECT TOP(1) * FROM dbo.users WHERE FullName=?", fullName)
                 row = cursor.fetchone()
-            else: 
+            else:
                 return func.HttpResponse("Please pass a valid 'personId' or 'fullName' on the query string. Make sure all parameters are formatted correctly (e.g. personId has 6 digits).", status_code=400)
-                
-            # Verify pin  
-            if hash.matchHashedText(row.PinHash, pin): 
-                return func.HttpResponse("True", status_code=200) 
-            else: 
+
+            # Verify pin
+            if hash.matchHashedText(row.PinHash, pin):
+                return func.HttpResponse("True", status_code=200)
+            else:
                 return func.HttpResponse("False", status_code=401)
-    return str(row)
 
 @app.function_name(name="SearchName")
 @app.route(route="search_name", auth_level=func.AuthLevel.FUNCTION)
