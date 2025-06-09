@@ -202,5 +202,7 @@ def person_information(access_token: str):
     except ConnectionError: 
         return False
     
-at = "N1wbgIw4YOkeWNTN1VvKIwAMJE2jqwKBNXaScck7K2N-Wh2Uz5wpg6Qat-Vxviwu-xRTkP516KQIUrE2EGGptt_j0d5TSeuApmL9XqrfDglgXvG0b_YWqTAVk7yxdLQ9"
-print(person_information(at))
+if __name__ == "__main__":
+    # Example usage for manual testing
+    at = "N1wbgIw4YOkeWNTN1VvKIwAMJE2jqwKBNXaScck7K2N-Wh2Uz5wpg6Qat-Vxviwu-xRTkP516KQIUrE2EGGptt_j0d5TSeuApmL9XqrfDglgXvG0b_YWqTAVk7yxdLQ9"
+    print(person_information(at))
