@@ -38,3 +38,25 @@ def decrypt(token: bytes, key: bytes) -> bytes:
         cryptography.fernet.InvalidToken: If the token is invalid or the key is incorrect.
     """
     return Fernet(key).decrypt(token)
+
+
+def parse_date_range(start: str, end: str):
+    """Parse ISO formatted date strings and ensure a valid range.
+
+    Args:
+        start: Start date as ``YYYY-MM-DD`` string.
+        end: End date as ``YYYY-MM-DD`` string.
+
+    Returns:
+        Tuple of ``datetime`` objects representing the range.
+
+    Raises:
+        ValueError: If the date format is invalid or ``start`` is after ``end``.
+    """
+    from datetime import datetime
+
+    start_dt = datetime.fromisoformat(start)
+    end_dt = datetime.fromisoformat(end)
+    if start_dt > end_dt:
+        raise ValueError("start date must be before end date")
+    return start_dt, end_dt

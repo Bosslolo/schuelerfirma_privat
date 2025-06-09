@@ -59,7 +59,7 @@ New Features to Add:
     - Add real-time consumption statistics. -
     - Implement trend analysis.
     - Add export functionality for reports (PDF, Excel).
-    - Add custom date range selection for reports. --
+    - Add custom date range selection for reports. ✅
     - Implement automated report generation. -
 
 3. User Features:
