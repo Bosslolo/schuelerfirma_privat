@@ -30,7 +30,11 @@ class APIConfig:
             "name_to_personid": f"/name_to_personid?code={os.getenv('API_NAME_TO_PERSONID_CODE', '')}",
             "get_consumption": f"/get_consumption?code={os.getenv('API_GET_CONSUMPTION_CODE', '')}",
             "add_consumption": f"/add_consumption?code={os.getenv('API_ADD_CONSUMPTION_CODE', '')}",
+            "get_total_consumption": f"/get_total_consumption?code={os.getenv('API_GET_TOTAL_CONSUMPTION_CODE', '')}",
             "itsl_login": f"/itsl_login?code={os.getenv('API_ITSL_LOGIN_CODE', '')}"
+            "itsl_login": f"/itsl_login?code={os.getenv('API_ITSL_LOGIN_CODE', '')}",
+            "get_report": f"/get_report?code={os.getenv('API_GET_REPORT_CODE', '')}"
+            "admin_report": f"/admin_report?code={os.getenv('API_ADMIN_REPORT_CODE', '')}"
         }
 
     def get_url(self, endpoint_name: str) -> str:
@@ -102,11 +106,13 @@ class AppConfig:
         """
         required_env_vars = [
             "API_GET_USERNAMES_CODE",
-            "API_SEARCH_NAME_CODE", 
+            "API_SEARCH_NAME_CODE",
             "API_NAME_TO_PERSONID_CODE",
             "API_GET_CONSUMPTION_CODE",
             "API_ADD_CONSUMPTION_CODE",
-            "API_ITSL_LOGIN_CODE"
+            "API_ITSL_LOGIN_CODE",
+            "API_GET_REPORT_CODE"
+            "API_ADMIN_REPORT_CODE"
         ]
         
         missing_vars = []

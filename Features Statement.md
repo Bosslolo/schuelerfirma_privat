@@ -96,7 +96,7 @@ A simple database (SQLite) would look like this:
 - **Set Up API Routes (Flask / Express.js / Laravel)**
   - `POST /login` → Authenticates user (verifies 3-digit code / user id).  
   - `POST /log-consumption` → Adds an entry to the `consumption` table.  
-  - `GET /report` → Retrieves summarized data for the admin panel.  
+  - `POST /report` → Retrieves summarized data for a given date range.
 
 - **Implement Authentication**
   - Users enter their **4-digit code**, which is checked against the database.  

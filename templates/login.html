@@ -101,14 +101,30 @@
         <a href="./" class="back-link">&lt; Back</a>
         <h1>Login with itslearning</h1>
         <p>Enter the username and password you use to log in to itslearning.</p>
-        <form method="POST" action="/login_submit">
+        <form method="POST" action="/login_submit" id="loginForm">
             <input type="text" name="username" placeholder="Username" required>
             <input type="password" name="password" placeholder="Password" required>
             <input type="checkbox" checked id="rememberlogin" name="remember" value="Bike">
             <label for="remember" class="checkbox-label">Remember login information</label><br><br>
             <button type="submit">Login</button>
+            <div id="formError" style="color:#ff6b6b;margin-top:0.5em;"></div>
         </form>
         <br>
         <a href="/how-it-works" class="helper-link">How does this work?</a>
     </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const loginForm = document.getElementById('loginForm');
+    const errorDiv = document.getElementById('formError');
+    loginForm.addEventListener('submit', function (e) {
+        const user = this.username.value.trim();
+        const pass = this.password.value.trim();
+        if (!user || !pass) {
+            e.preventDefault();
+            errorDiv.textContent = 'Both username and password are required.';
+        }
+    });
+</script>
 {% endblock %}

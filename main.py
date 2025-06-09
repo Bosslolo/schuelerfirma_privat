@@ -206,8 +206,14 @@ def verify_pin() -> Union[str, Response]:
     Returns:
         Union[str, Response]: Either the consumption data page or an error message
     """
-    selected_user: str = request.form['selected_user']
-    pin: str = request.form['pin']
+    selected_user: str = request.form.get('selected_user', '').strip()
+    pin: str = request.form.get('pin', '').strip()
+    if not selected_user or not pin.isdigit():
+        app_logger.warning('Invalid verification input received')
+        return Response(
+            'Missing user or PIN. <a href="./">Back</a>',
+            status=400
+        )
     client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
 
     app_logger.info(f"PIN verification attempt for user: {selected_user}")
@@ -226,15 +232,30 @@ def verify_pin() -> Union[str, Response]:
             
             # Get consumption data
             consump_response = make_api_request("get_consumption", {"personId": person_id})
-            
+
             try:
                 consumption_data: Dict[str, Any] = consump_response.json()
                 # Add user's name and formatted month to the data
                 consumption_data['UserName'] = selected_user
                 consumption_data['MonthName'] = datetime.datetime.now().strftime('%B').capitalize()
-                
+                consumption_data['UserPoints'] = helpers.calculate_points(consumption_data)
+
+                # Calculate current total cost
+                counts = {
+                    'coffee': consumption_data.get('Coffee', 0),
+                    'chocolate': consumption_data.get('Chocolate', 0),
+                    'tea': consumption_data.get('Tea', 0),
+                    'juices': consumption_data.get('Juices', 0),
+                    'water': consumption_data.get('Water', 0),
+                }
+                consumption_data['TotalCost'] = helpers.calculate_cost(counts)
+
                 app_logger.info(f"Consumption data loaded for user: {selected_user}")
-                return render_template("drinks.html", data=consumption_data)
+                return render_template(
+                    "drinks.html",
+                    data=consumption_data,
+                    drink_prices=helpers.DRINK_PRICES,
+                )
                 
             except Exception as ex:
                 log_error(ex, {
@@ -328,8 +349,15 @@ def itsl_login_submit_data() -> Response:
     Returns:
         Response: Flask response with authentication cookies set
     """
-    username: str = request.form["username"]
-    password: str = request.form["password"]
+    username: str = request.form.get("username", "").strip()
+    password: str = request.form.get("password", "").strip()
+    if not username or not password:
+        app_logger.warning("Login attempt with missing credentials")
+        return make_response(
+            "<br>Username and password are required.<br>"
+            "<a href='./login'>Back to login.</a>",
+            400
+        )
     client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
     
     app_logger.info(f"itslearning login attempt for user: {username} from {client_ip}")
@@ -362,6 +390,84 @@ def itsl_login_submit_data() -> Response:
             f"<a href='./'>Back to start page.</a><br><br>More information: {str(ex)} {str(ex.args)}",
             status=401
         )
+
+@app.route("/stats", methods=["GET"])
+def stats() -> str:
+    """Display real-time consumption statistics."""
+    try:
+        response = make_api_request("get_total_consumption")
+        data = response.json() if response.status_code == 200 else {}
+    except Exception as e:
+        log_error(e, {'route': 'stats'})
+        data = {}
+    return render_template("stats.html", data=data)
+
+
+@app.route("/stats_data", methods=["GET"])
+def stats_data() -> Response:
+    """Return consumption statistics as JSON."""
+    try:
+        response = make_api_request("get_total_consumption")
+        return Response(response.text, status=response.status_code, mimetype="application/json")
+    except Exception as e:
+        log_error(e, {'route': 'stats_data'})
+        return Response(status=500)
+      
+@app.route("/report", methods=["GET", "POST"])
+def report() -> str:
+    """Display drink report for a custom date range."""
+    if request.method == "POST":
+        start_date = request.form.get("start_date")
+        end_date = request.form.get("end_date")
+        try:
+            response = make_api_request(
+                "get_report",
+                {"start_date": start_date, "end_date": end_date},
+                method="POST",
+            )
+            results = response.json()
+        except Exception as e:
+            log_error(e, {"route": "report", "start": start_date, "end": end_date})
+            results = []
+        return render_template(
+            "report.html", results=results, start_date=start_date, end_date=end_date
+        )
+    return render_template("report.html", results=None)
+
+@app.route('/admin', methods=['GET'])
+def admin_dashboard() -> str:
+    """Display the admin dashboard with monthly consumption report."""
+    app_logger.info("Admin dashboard accessed")
+    try:
+        response = make_api_request("admin_report")
+        if response.status_code == 200:
+            report_data = response.json().get("Report", [])
+        else:
+            app_logger.warning(
+                f"Failed to fetch admin report: HTTP {response.status_code}"
+            )
+            report_data = []
+    except Exception as e:
+        log_error(e, {'route': 'admin_dashboard'})
+        # Fallback sample data for development
+        report_data = [
+            {
+                'FullName': 'Alice Example',
+                'Coffee': 10,
+                'HotChocolate': 3,
+                'Tea': 2,
+                'Total': 15.5,
+            },
+            {
+                'FullName': 'Bob Example',
+                'Coffee': 5,
+                'HotChocolate': 1,
+                'Tea': 0,
+                'Total': 6.0,
+            },
+        ]
+
+    return render_template('admin.html', report=report_data)
 
 @app.errorhandler(404)
 def not_found_error(error) -> Response:
