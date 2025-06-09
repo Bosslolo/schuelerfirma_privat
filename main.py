@@ -219,9 +219,23 @@ def verify_pin() -> Union[str, Response]:
                 # Add user's name and formatted month to the data
                 consumption_data['UserName'] = selected_user
                 consumption_data['MonthName'] = datetime.datetime.now().strftime('%B').capitalize()
-                
+
+                # Calculate current total cost
+                counts = {
+                    'coffee': consumption_data.get('Coffee', 0),
+                    'chocolate': consumption_data.get('Chocolate', 0),
+                    'tea': consumption_data.get('Tea', 0),
+                    'juices': consumption_data.get('Juices', 0),
+                    'water': consumption_data.get('Water', 0),
+                }
+                consumption_data['TotalCost'] = helpers.calculate_cost(counts)
+
                 app_logger.info(f"Consumption data loaded for user: {selected_user}")
-                return render_template("drinks.html", data=consumption_data)
+                return render_template(
+                    "drinks.html",
+                    data=consumption_data,
+                    drink_prices=helpers.DRINK_PRICES,
+                )
                 
             except Exception as ex:
                 log_error(ex, {
