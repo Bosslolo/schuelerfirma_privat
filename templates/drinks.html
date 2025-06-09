@@ -46,6 +46,12 @@
       font-size: 1.1em;
     }
 
+    .header .points {
+      margin-top: 0.3em;
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+
     table { 
       border-collapse: collapse; 
       width: 100%;
@@ -226,6 +232,7 @@
     <div class="header">
         <h2>Getränkeverwaltung</h2>
         <div class="subtitle">{{ data.UserName }} - {{ data.MonthName }}</div>
+        <div class="points">Punkte: {{ data.UserPoints }}</div>
     </div>
 
     <table id="drinkTable">
@@ -238,7 +245,7 @@
         </thead>
         <tbody>
             {% for key, value in data.items() %}
-                {% if key not in ['PersonId', 'Month', 'UserName', 'MonthName'] %}
+                {% if key not in ['PersonId', 'Month', 'UserName', 'MonthName', 'UserPoints'] %}
                     <tr>
                         <td class="drink-name">{{ key }}</td>
                         <td><input type="number" value="{{ value }}" class="drink-amount" readonly></td>
