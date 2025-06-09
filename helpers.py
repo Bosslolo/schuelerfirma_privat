@@ -39,6 +39,29 @@ def decrypt(token: bytes, key: bytes) -> bytes:
     """
     return Fernet(key).decrypt(token)
 
+def calculate_points(consumption: dict) -> int:
+    """Calculate total reward points based on consumption data.
+
+    Points are awarded per drink consumed. The function sums all numeric
+    values in the consumption dictionary except for metadata fields.
+
+    Args:
+        consumption (dict): Data returned from the API ``get_consumption``
+            endpoint.
+
+    Returns:
+        int: Total number of points for the current dataset.
+    """
+
+    ignore_keys = {"PersonId", "Month", "UserName", "MonthName", "UserPoints"}
+    points = 0
+    for key, value in consumption.items():
+        if key in ignore_keys:
+            continue
+        if isinstance(value, (int, float)):
+            points += int(value)
+    return points
+  
 # --- Cost Tracking Utilities ---
 
 # Default drink prices used for cost calculations (EUR).

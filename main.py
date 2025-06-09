@@ -213,12 +213,13 @@ def verify_pin() -> Union[str, Response]:
             
             # Get consumption data
             consump_response = make_api_request("get_consumption", {"personId": person_id})
-            
+
             try:
                 consumption_data: Dict[str, Any] = consump_response.json()
                 # Add user's name and formatted month to the data
                 consumption_data['UserName'] = selected_user
                 consumption_data['MonthName'] = datetime.datetime.now().strftime('%B').capitalize()
+                consumption_data['UserPoints'] = helpers.calculate_points(consumption_data)
 
                 # Calculate current total cost
                 counts = {
