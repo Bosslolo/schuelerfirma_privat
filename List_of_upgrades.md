@@ -87,6 +87,6 @@ New Features to Add:
 
 7. Business Features:
     - Add cost tracking. -
-    - Implement automated invoicing. ---
+    - Implement automated invoicing. ✅
     - Add payment processing. -
     - (Implement loyalty program)
