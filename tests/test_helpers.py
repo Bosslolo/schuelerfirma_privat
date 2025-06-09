@@ -13,6 +13,18 @@ def test_encrypt_decrypt_roundtrip():
     decrypted = helpers.decrypt(encrypted, key)
     assert decrypted == message.encode()
 
+
+
+def test_parse_date_range_valid():
+    start, end = helpers.parse_date_range("2024-01-01", "2024-01-31")
+    assert start.day == 1 and end.day == 31
+
+
+def test_parse_date_range_invalid():
+    import pytest
+    with pytest.raises(ValueError):
+        helpers.parse_date_range("2024-02-01", "2024-01-01")
+
 def test_calculate_points():
     consumption = {
         "PersonId": "123456",

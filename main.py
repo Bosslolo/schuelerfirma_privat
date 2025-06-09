@@ -365,6 +365,26 @@ def itsl_login_submit_data() -> Response:
             status=401
         )
 
+@app.route("/report", methods=["GET", "POST"])
+def report() -> str:
+    """Display drink report for a custom date range."""
+    if request.method == "POST":
+        start_date = request.form.get("start_date")
+        end_date = request.form.get("end_date")
+        try:
+            response = make_api_request(
+                "get_report",
+                {"start_date": start_date, "end_date": end_date},
+                method="POST",
+            )
+            results = response.json()
+        except Exception as e:
+            log_error(e, {"route": "report", "start": start_date, "end": end_date})
+            results = []
+        return render_template(
+            "report.html", results=results, start_date=start_date, end_date=end_date
+        )
+    return render_template("report.html", results=None)
 
 @app.route('/admin', methods=['GET'])
 def admin_dashboard() -> str:
