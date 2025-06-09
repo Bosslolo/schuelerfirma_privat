@@ -50,7 +50,7 @@ def verify_pin(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.
 @app.route(route="search_name", auth_level=func.AuthLevel.FUNCTION)
 @app.generic_output_binding(arg_name="toDoItems", type="sql", CommandText="dbo.users", ConnectionStringSetting="SqlConnectionString",data_type=DataType.STRING)
 def search_name(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.HttpResponse:
-    """Return the first 10 names of users that BEGIN with the given searchText string."""
+    """Return the first 5 names of users that BEGIN with the given searchText string."""
     try: 
         searchText = req.get_json().get("searchText") 
     except ValueError: 
