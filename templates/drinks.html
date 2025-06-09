@@ -1,0 +1,368 @@
+{% extends "base.html" %}
+
+{% block title %}Schülerfirma - Getränkeverwaltung{% endblock %}
+
+{% block head %}
+<style>
+    :root {
+        --primary-color: #4CAF50;
+        --primary-dark: #45a049;
+        --secondary-color: #2196F3;
+        --secondary-dark: #1976D2;
+        --text-color: #333;
+        --border-color: #ddd;
+        --background-light: #f5f5f5;
+        --success-color: #4CAF50;
+        --success-bg: #e8f5e9;
+    }
+
+    body { 
+      font-family: 'Segoe UI', Arial, sans-serif; 
+      padding: 1em;
+      margin: 0;
+      box-sizing: border-box;
+      color: var(--text-color);
+      background-color: #fff;
+      line-height: 1.6;
+    }
+
+    .header {
+      background-color: var(--primary-color);
+      color: white;
+      padding: 1.5em;
+      margin: -1em -1em 1em -1em;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .header h2 {
+      margin: 0;
+      font-size: 1.5em;
+      font-weight: 500;
+    }
+
+    .header .subtitle {
+      margin-top: 0.5em;
+      opacity: 0.9;
+      font-size: 1.1em;
+    }
+
+    table { 
+      border-collapse: collapse; 
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto 2em auto;
+      font-size: 1.2em;
+      background: white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td { 
+      border: 1px solid var(--border-color); 
+      padding: 1em;
+      text-align: left;
+    }
+
+    th {
+      background-color: var(--background-light);
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    tr:nth-child(even) {
+      background-color: var(--background-light);
+    }
+
+    input[type="number"] { 
+      padding: 0.8em;
+      width: 100px;
+      font-size: 1.1em;
+      border: 2px solid var(--border-color);
+      border-radius: 4px;
+      background-color: white;
+    }
+
+    button { 
+      padding: 0.8em 1.2em;
+      margin: 0.2em;
+      font-size: 1.2em;
+      min-height: 44px;
+      border: none;
+      border-radius: 4px;
+      background-color: var(--primary-color);
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+    }
+
+    button:hover {
+      background-color: var(--primary-dark);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .action-cell {
+      text-align: center;
+    }
+
+    .action-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5em;
+    }
+
+    .session-counter {
+      font-weight: bold;
+      color: #666;
+      min-width: 40px;
+      text-align: center;
+      font-size: 1.2em;
+      padding: 0.2em 0.5em;
+      background-color: var(--background-light);
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+    }
+
+    .session-counter.positive {
+      color: var(--success-color);
+      background-color: var(--success-bg);
+      border-color: var(--success-color);
+    }
+
+    .session-counter.zero {
+      color: #666;
+      background-color: var(--background-light);
+      border-color: var(--border-color);
+    }
+
+    #doneBtn {
+      display: block;
+      width: 100%;
+      max-width: 800px;
+      margin: 2em auto;
+      padding: 1em 2em;
+      font-size: 1.3em;
+      background-color: var(--secondary-color);
+    }
+
+    #doneBtn:hover {
+      background-color: var(--secondary-dark);
+    }
+
+    #infoBox {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background-color: var(--success-color);
+      color: white;
+      padding: 1em 1.5em;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 1.2em;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      transform: translateY(20px);
+      z-index: 9999;
+    }
+
+    #infoBox.show {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 768px) {
+      .header {
+        padding: 1em;
+      }
+
+      .header h2 {
+        font-size: 1.3em;
+      }
+
+      table {
+        font-size: 1em;
+      }
+      
+      th, td {
+        padding: 0.8em;
+      }
+
+      input[type="number"] {
+        width: 80px;
+        padding: 0.6em;
+      }
+
+      button {
+        padding: 0.6em 1em;
+      }
+
+      .action-group {
+        gap: 0.3em;
+      }
+
+      .session-counter {
+        min-width: 35px;
+        font-size: 1.1em;
+        padding: 0.1em 0.3em;
+      }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h2>Getränkeverwaltung</h2>
+        <div class="subtitle">{{ data.UserName }} - {{ data.MonthName }}</div>
+    </div>
+
+    <table id="drinkTable">
+        <thead>
+            <tr>
+                <th>Getränk</th>
+                <th>Aktueller Bestand</th>
+                <th>Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for key, value in data.items() %}
+                {% if key not in ['PersonId', 'Month', 'UserName', 'MonthName'] %}
+                    <tr>
+                        <td class="drink-name">{{ key }}</td>
+                        <td><input type="number" value="{{ value }}" class="drink-amount" readonly></td>
+                        <td class="action-cell">
+                            <div class="action-group">
+                                <button class="increment-btn" title="Getränk hinzufügen">+</button>
+                                <span class="session-counter" data-drink="{{ key.lower() }}">0</span>
+                                <button class="reduce-btn" disabled title="Getränk entfernen">-</button>
+                            </div>
+                        </td>
+                    </tr>
+                {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <button id="doneBtn">Fertig</button>
+
+    <form id="submitForm" method="POST" action="/submit">
+        <input type="hidden" name="data" id="dataInput" value="">
+    </form>
+
+    <div hidden="true" id="result"></div>
+    <div id="infoBox"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const personId = "{{ data.PersonId }}";
+    const originalValues = {};
+    const sessionIncrements = {};
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const rows = document.querySelectorAll('#drinkTable tbody tr');
+        rows.forEach(row => {
+            const drink = row.querySelector('.drink-name').textContent.trim().toLowerCase();
+            const input = row.querySelector('.drink-amount');
+            const amount = parseInt(input.value) || 0;
+            const counter = row.querySelector('.session-counter');
+
+            originalValues[drink] = amount;
+            sessionIncrements[drink] = 0;
+
+            const incButton = row.querySelector('.increment-btn');
+            const redButton = row.querySelector('.reduce-btn');
+
+            incButton.addEventListener('click', () => incrementDrink(drink, input, redButton, counter));
+            redButton.addEventListener('click', () => reduceDrink(drink, input, redButton, counter));
+        });
+    });
+
+    function updateCounter(counter, value) {
+        counter.textContent = value;
+        counter.className = 'session-counter ' + (value > 0 ? 'positive' : 'zero');
+    }
+
+    function incrementDrink(drink, input, reduceButton, counter) {
+        input.value = parseInt(input.value) + 1;
+        sessionIncrements[drink] += 1;
+        updateCounter(counter, sessionIncrements[drink]);
+
+        if (sessionIncrements[drink] > 0) {
+            reduceButton.disabled = false;
+        }
+    }
+
+    function reduceDrink(drink, input, reduceButton, counter) {
+        if (sessionIncrements[drink] > 0) {
+            input.value = parseInt(input.value) - 1;
+            sessionIncrements[drink] -= 1;
+            updateCounter(counter, sessionIncrements[drink]);
+
+            if (sessionIncrements[drink] === 0) {
+                reduceButton.disabled = true;
+            }
+        }
+    }
+
+    function generateJSON() {
+        const data = {
+            personId: "{{ data.PersonId }}"
+        };
+
+        const rows = document.querySelectorAll('#drinkTable tbody tr');
+        rows.forEach(row => {
+            const drink = row.querySelector('.drink-name').textContent.trim().toLowerCase();
+            const amount = parseInt(row.querySelector('.drink-amount').value) || 0;
+            data[drink] = amount;
+        });
+
+        const jsonResult = JSON.stringify(data, null, 2);
+        document.getElementById('result').textContent = jsonResult;
+
+        // Show summary of changes
+        let summary = "Zusammenfassung der Änderungen:\n";
+        let hasChanges = false;
+        for (const [drink, increment] of Object.entries(sessionIncrements)) {
+            if (increment !== 0) {
+                hasChanges = true;
+                summary += `${drink}: ${increment > 0 ? '+' : ''}${increment}\n`;
+            }
+        }
+
+        if (!hasChanges) {
+            summary = "Keine Änderungen vorgenommen.";
+        }
+
+        if (confirm(`${summary}\n\nMöchten Sie die Änderungen speichern?`)) {
+            document.getElementById("dataInput").value = jsonResult;
+            document.getElementById("submitForm").submit();
+            showInfoBox("Änderungen erfolgreich gespeichert!");
+        }
+    }
+
+    document.getElementById('doneBtn').addEventListener('click', generateJSON);
+
+    function showInfoBox(message, duration = 3000) {
+        const box = document.getElementById('infoBox');
+        box.textContent = message;
+        box.classList.add('show');
+
+        setTimeout(() => {
+            box.classList.remove('show');
+        }, duration);
+    }
+</script>
+{% endblock %}

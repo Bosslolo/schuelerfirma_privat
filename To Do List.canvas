@@ -1,0 +1,10 @@
+{
+	"nodes":[
+		{"id":"854c88a0e4d03b18","type":"text","text":"**Niklas** \n- CSS / Design\n- \n  ","x":-640,"y":-840,"width":250,"height":600,"color":"5"},
+		{"id":"f9f928c2252b1cfd","type":"text","text":"**Julian** \n- Set up Django - Done\n- We could add something to connect the account with the itslearning account and people who don't consume something for three months will be deleted. To create an account they can then use their itslearning account to create one. With that we don't need to add and delete people all the time.","x":-340,"y":-840,"width":250,"height":600,"color":"6"},
+		{"id":"a9bd8a1d965ee446","type":"text","text":"**Merlin** \n\n- ","x":-40,"y":-840,"width":250,"height":600,"color":"3"},
+		{"id":"85470192695a88b7","type":"text","text":"**Fabian**\n- API for adding coffee, etc\n- Backend\n- itslearning (invoices)\n","x":260,"y":-840,"width":250,"height":600,"color":"4"},
+		{"id":"03ba77006f80dfdf","type":"text","text":"- Views documented (order view, confirmation pup-up, etc.) and linked\n- Database guru (working with the API guy, querying the data)\n- Excel sheet","x":-880,"y":-600,"width":335,"height":500}
+	],
+	"edges":[]
+}

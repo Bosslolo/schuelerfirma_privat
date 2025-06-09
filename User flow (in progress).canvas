@@ -1,0 +1,38 @@
+{
+	"nodes":[
+		{"id":"c141fecf66c6bb7e","type":"text","text":"\nEvery user gets assigned an individual 4-digit code by us.","x":-665,"y":-290,"width":245,"height":110},
+		{"id":"8641b724d0cb493d","type":"text","text":"Example: \n\n| name   | code | itslearning user id |\n| ------ | ---- | ------------------- |\n| Fabian | 1234 | 45678               |\n| Merlin | 0000 | 87654               |\nEach individually assigned code is pinned to the itslearning account of the person the code is assigned to. ","x":-600,"y":-40,"width":420,"height":300},
+		{"id":"a4e3e4d051373574","type":"text","text":"Adding drinks at the\n**user's individual device (Mac, phone, etc.)**","x":-665,"y":380,"width":245,"height":100,"color":"3"},
+		{"id":"cdc3e35a0811a0c3","type":"text","text":"User logs in one-time via itslearning.","x":-665,"y":520,"width":250,"height":80,"color":"4"},
+		{"id":"918bbeeccaff230c","type":"text","text":"Get data","x":-340,"y":530,"width":125,"height":60},
+		{"id":"56aa3104cc6ca6b7","type":"text","text":"User is able to access more functionality like changing his code, checking consumption details or configuring invoice notifications.\n\nBecause of the login via itslearing we can be sure which user it is.","x":-130,"y":469,"width":450,"height":183,"color":"4"},
+		{"id":"4a2e9aaa321b8f3c","type":"text","text":"User enters his individual code.","x":-340,"y":-280,"width":250,"height":90,"color":"4"},
+		{"id":"59bed44e3e8a5d03","type":"file","file":"Pasted image 20250211190611.png","x":47,"y":-313,"width":287,"height":156,"color":"4"},
+		{"id":"2fdb9f4577937d6d","type":"text","text":"**Overview**\nUser adds drinks.","x":47,"y":-140,"width":287,"height":80,"color":"4"},
+		{"id":"9258ef40a21fcfa4","type":"text","text":"Adding drinks at the\n**iPad**","x":-665,"y":-400,"width":245,"height":67,"color":"3"},
+		{"id":"72491ce90eb976c4","type":"file","file":"Pasted image 20250318195051.png","x":-760,"y":980,"width":400,"height":382},
+		{"id":"e0a662c50a8447c4","type":"file","file":"Pasted image 20250318195229.png","x":360,"y":980,"width":557,"height":382},
+		{"id":"37f99b2f8a829150","type":"text","text":"Get user's role","x":-130,"y":1142,"width":250,"height":59},
+		{"id":"3fa90c19a5ed5277","type":"text","text":"Show admin dashboard","x":-130,"y":1726,"width":250,"height":60},
+		{"id":"3de09ed16e41e044","type":"file","file":"Pasted image 20250318195705.png","x":-760,"y":1544,"width":400,"height":212},
+		{"id":"f5bd057a66fd07f1","type":"file","file":"Pasted image 20250318195436.png","x":1268,"y":1047,"width":400,"height":248},
+		{"id":"f02d5b15edd3797e","type":"text","text":"","x":1326,"y":1115,"width":250,"height":60},
+		{"id":"59eedb74fe576ba5","type":"file","file":"Pasted image 20250318195918.png","x":1220,"y":1047,"width":496,"height":248}
+	],
+	"edges":[
+		{"id":"3eea654f8250a01d","fromNode":"8641b724d0cb493d","fromSide":"top","toNode":"4a2e9aaa321b8f3c","toSide":"bottom","color":"4"},
+		{"id":"d8cb8ed32f4d3659","fromNode":"c141fecf66c6bb7e","fromSide":"bottom","toNode":"8641b724d0cb493d","toSide":"top"},
+		{"id":"e0fc67cc99eac682","fromNode":"cdc3e35a0811a0c3","fromSide":"right","toNode":"56aa3104cc6ca6b7","toSide":"left"},
+		{"id":"d3ce2d9de9261443","fromNode":"8641b724d0cb493d","fromSide":"bottom","toNode":"918bbeeccaff230c","toSide":"top"},
+		{"id":"eb9b72aee76529a1","fromNode":"59bed44e3e8a5d03","fromSide":"top","toNode":"4a2e9aaa321b8f3c","toSide":"top","label":"Logout"},
+		{"id":"5855289f072c4889","fromNode":"4a2e9aaa321b8f3c","fromSide":"right","toNode":"59bed44e3e8a5d03","toSide":"left"},
+		{"id":"42bba12d9b03a8e9","fromNode":"72491ce90eb976c4","fromSide":"right","toNode":"37f99b2f8a829150","toSide":"left","color":"4","label":"Correct pin"},
+		{"id":"ddc8e73ab1d8aca1","fromNode":"37f99b2f8a829150","fromSide":"right","toNode":"e0a662c50a8447c4","toSide":"left","label":"Student, Teacher"},
+		{"id":"ada989c6808c73a6","fromNode":"37f99b2f8a829150","fromSide":"bottom","toNode":"3fa90c19a5ed5277","toSide":"top","label":"Administrator"},
+		{"id":"1ca5b6b932996e91","fromNode":"e0a662c50a8447c4","fromSide":"right","toNode":"59eedb74fe576ba5","toSide":"left","label":"Clicked \"Done\""},
+		{"id":"7c0d1a3a458dc0e2","fromNode":"f5bd057a66fd07f1","fromSide":"top","toNode":"72491ce90eb976c4","toSide":"top","color":"4","label":"Clicked \"Confirm\""},
+		{"id":"641ea472820ded9b","fromNode":"f5bd057a66fd07f1","fromSide":"bottom","toNode":"e0a662c50a8447c4","toSide":"bottom","color":"1","label":"Clicked \"Cancel\""},
+		{"id":"ec6ccd4535ea599a","fromNode":"72491ce90eb976c4","fromSide":"bottom","toNode":"3de09ed16e41e044","toSide":"top","color":"1","label":"Incorrect pin"},
+		{"id":"35a3c2ec3b4aa6ec","fromNode":"3de09ed16e41e044","fromSide":"left","toNode":"72491ce90eb976c4","toSide":"left"}
+	]
+}
