@@ -31,10 +31,10 @@ def verify_pin(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.
     with pyodbc.connect(connectionString) as conn: 
         with conn.cursor() as cursor: 
             if personId and type(personId) is str and len(personId) == 6:
-                cursor.execute(f"SELECT TOP(1) * FROM dbo.users WHERE ItslPersonId=?", personId)
-                row = cursor.fetchone() 
-            elif fullName and type(fullName) is str: 
-                cursor.execute("SELECT TOP(1) * FROM dbo.users WHERE FullName=?", fullName)
+                cursor.execute("SELECT TOP (1) PinHash FROM dbo.users WHERE ItslPersonId=?", personId)
+                row = cursor.fetchone()
+            elif fullName and type(fullName) is str:
+                cursor.execute("SELECT TOP (1) PinHash FROM dbo.users WHERE FullName=?", fullName)
                 row = cursor.fetchone()
             else:
                 return func.HttpResponse("Please pass a valid 'personId' or 'fullName' on the query string. Make sure all parameters are formatted correctly (e.g. personId has 6 digits).", status_code=400)
@@ -58,15 +58,14 @@ def search_name(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func
     
     if not searchText: 
         return func.HttpResponse("Please pass a valid 'fullName' on the query string.", status_code=400)
-    with pyodbc.connect(connectionString) as conn: 
-        with conn.cursor() as cur: 
-            cur.execute(f"SELECT TOP(5) * FROM dbo.users WHERE FullName LIKE ?", searchText + "%")
-            row = cur.fetchone() 
-            results = {"EntityArray": [], "Gesamt": 0}
-            while row: 
-                results["EntityArray"].append(row.FullName) 
-                results["Gesamt"] += 1
-                row = cur.fetchone()
+    with pyodbc.connect(connectionString) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT TOP (5) FullName FROM dbo.users WHERE FullName LIKE ?", searchText + "%")
+            rows = cur.fetchall()
+            results = {
+                "EntityArray": [r.FullName for r in rows],
+                "Gesamt": len(rows)
+            }
             results = json.dumps(results)
             return func.HttpResponse(results, status_code=200)
 
@@ -76,16 +75,15 @@ def search_name(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func
 @app.generic_output_binding(arg_name="toDoItems", type="sql", CommandText="dbo.users", ConnectionStringSetting="SqlConnectionString",data_type=DataType.STRING)
 def get_usernames(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.HttpResponse:
     """Returns an Entity Array with the names of the top 10,000 registered users."""
-    with pyodbc.connect(connectionString) as con: 
-        with con.cursor() as cur: 
-            cur.execute(f"SELECT TOP(10000) * FROM dbo.users") 
-            row = cur.fetchone() 
-            results = {"EntityArray": [], "Gesamt": 0} 
-            while row: 
-                results["EntityArray"].append(row.FullName) 
-                results["Gesamt"] += 1 
-                row = cur.fetchone() 
-            results = json.dumps(results) 
+    with pyodbc.connect(connectionString) as con:
+        with con.cursor() as cur:
+            cur.execute("SELECT TOP (10000) FullName FROM dbo.users")
+            rows = cur.fetchall()
+            results = {
+                "EntityArray": [r.FullName for r in rows],
+                "Gesamt": len(rows)
+            }
+            results = json.dumps(results)
             return func.HttpResponse(results, status_code=200)
 
 
@@ -100,12 +98,20 @@ def person_information(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) 
         # HTTP request does not contain valid JSON data
         return func.HttpResponse("Please pass valid data on the query string.", status_code=400)
     
-    with pyodbc.connect(connectionString) as conn: 
-        with conn.cursor() as cur: 
+    with pyodbc.connect(connectionString) as conn:
+        with conn.cursor() as cur:
             if personId and type(personId) is str:
-                cur.execute("SELECT TOP(1) * FROM dbo.users WHERE ItslPersonId = ?", personId)
-            elif fullName and type(fullName) is str: 
-                cur.execute("SELECT TOP(1) * FROM dbo.users WHERE FullName = ?", fullName)
+                cur.execute(
+                    "SELECT TOP (1) ItslPersonId, FullName, PictureUrl, Role, ExtraInformation, Banned, TemporaryAccess, HasUnpaidInvoices "
+                    "FROM dbo.users WHERE ItslPersonId = ?",
+                    personId,
+                )
+            elif fullName and type(fullName) is str:
+                cur.execute(
+                    "SELECT TOP (1) ItslPersonId, FullName, PictureUrl, Role, ExtraInformation, Banned, TemporaryAccess, HasUnpaidInvoices "
+                    "FROM dbo.users WHERE FullName = ?",
+                    fullName,
+                )
             else: 
                 return func.HttpResponse("Please pass a valid 'personId' or 'fullName' on the query string.", status_code=400)
             
@@ -139,10 +145,13 @@ def name_to_personid(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) ->
     
     if not name or type(name) is not str: 
         return func.HttpResponse("Please pass a valid 'fullName' on the query string.", status_code=400)
-    with pyodbc.connect(connectionString) as con: 
-        with con.cursor() as cur: 
-            cur.execute("SELECT Top(1) * FROM dbo.users WHERE FullName=?", name)
-            row = cur.fetchone() 
+    with pyodbc.connect(connectionString) as con:
+        with con.cursor() as cur:
+            cur.execute(
+                "SELECT TOP (1) FullName, ItslPersonId, Role FROM dbo.users WHERE FullName=?",
+                name,
+            )
+            row = cur.fetchone()
             if row is None: 
                 return func.HttpResponse("User not found. Please check name and spelling.", status_code=404)
             result = { "FullName": str(row.FullName), "PersonId": str(row.ItslPersonId), "Role": str(row.Role) }
@@ -162,10 +171,13 @@ def get_consumption(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> 
     
     if not personId or type(personId) is not str: 
         return func.HttpResponse("Please pass a valid 'personId' on the query string.", status_code=400)
-    with pyodbc.connect(connectionString) as conn: 
-        with conn.cursor() as cur: 
-            cur.execute("SELECT TOP(1) * FROM dbo.consumption WHERE ItslPersonId=?", personId)
-            row = cur.fetchone() 
+    with pyodbc.connect(connectionString) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT TOP (1) ItslPersonId, Coffee, Tea, Chocolate, Water, Juices FROM dbo.consumption WHERE ItslPersonId=?",
+                personId,
+            )
+            row = cur.fetchone()
             if row is None: 
                 cur.execute("INSERT INTO dbo.consumption (ItslPersonId, Coffee, Chocolate, Tea, Juices, Water) VALUES (?, 0, 0, 0, 0, 0)", personId)
                 return func.HttpResponse("No record for the requested user found. Created user. Send request again to get desired output.", status_code=201)
@@ -301,12 +313,15 @@ def login_itsl(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.
     info = itsl.person_information(at[0])
 
     # Check if user is registered with us. 
-    with pyodbc.connect(connectionString) as con: 
-        with con.cursor() as cur: 
-            try: 
+    with pyodbc.connect(connectionString) as con:
+        with con.cursor() as cur:
+            try:
                 pId = info["PersonId"]
-                cur.execute("SELECT TOP (1) * FROM [dbo].[users] WHERE [ItslPersonId]=? AND [Role]='Administrator'", pId)
-                row = cur.fetchone() 
+                cur.execute(
+                    "SELECT TOP (1) 1 FROM [dbo].[users] WHERE [ItslPersonId]=? AND [Role]='Administrator'",
+                    pId,
+                )
+                row = cur.fetchone()
                 if row is None: 
                     return func.HttpResponse("No record for the requested user found. Probably, you are not yet registered with us. " \
                     "Please write a itslearning message to one of the following people to get you registered. Thank for your interest in the Schülerfirma API!<br>" \
