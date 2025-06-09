@@ -56,7 +56,7 @@ New Features to Add:
     - Add "Remember me" functionality.
 
 2. Reporting & Analytics:
-    - Add real-time consumption statistics. -
+    - Add real-time consumption statistics. ✅
     - Implement trend analysis.
     - Add export functionality for reports (PDF, Excel).
     - Add custom date range selection for reports. --

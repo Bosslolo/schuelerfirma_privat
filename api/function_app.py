@@ -174,7 +174,7 @@ def get_consumption(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> 
             return func.HttpResponse(result, status_code=200)
         
 
-@app.function_name(name="AddConsumption") 
+@app.function_name(name="AddConsumption")
 @app.route(route="add_consumption", auth_level=func.AuthLevel.FUNCTION)
 @app.generic_output_binding(arg_name="toDoItems", type="sql", CommandText="dbo.users", ConnectionStringSetting="SqlConnectionString",data_type=DataType.STRING)
 def add_consumption(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.HttpResponse:
@@ -201,8 +201,32 @@ def add_consumption(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> 
             try: 
                 cur.execute("MERGE INTO dbo.consumption AS t USING (SELECT ? AS ItslPersonId, ? AS Coffee, ? AS Tea, ? AS Chocolate, ? AS Water, ? AS Juices) AS s ON t.ItslPersonId = s.ItslPersonId WHEN MATCHED THEN UPDATE SET t.Coffee = s.Coffee, t.Tea = s.Tea, t.Chocolate = s.Chocolate, t.Water = s.Water, t.Juices = s.Juices WHEN NOT MATCHED THEN INSERT (ItslPersonId, Coffee, Tea, Chocolate, Water, Juices) VALUES (s.ItslPersonId, s.Coffee, s.Tea, s.Chocolate, s.Water, s.Juices);", personId, coffee, tea, choco, water, juices)
                 return func.HttpResponse("Update successfull.", status_code=200)
-            except ValueError: 
+            except ValueError:
                 return func.HttpResponse("Please check if all values are passed correctly.", status_code=500)
+
+
+@app.function_name(name="GetTotalConsumption")
+@app.route(route="get_total_consumption", auth_level=func.AuthLevel.FUNCTION)
+@app.generic_output_binding(arg_name="toDoItems", type="sql", CommandText="dbo.users", ConnectionStringSetting="SqlConnectionString",data_type=DataType.STRING)
+def get_total_consumption(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> func.HttpResponse:
+    """Return the total consumption across all users."""
+    with pyodbc.connect(connectionString) as con:
+        with con.cursor() as cur:
+            cur.execute(
+                "SELECT SUM(Coffee) AS Coffee, SUM(Tea) AS Tea, SUM(Chocolate) AS Chocolate, SUM(Water) AS Water, SUM(Juices) AS Juices FROM dbo.consumption"
+            )
+            row = cur.fetchone()
+            if row is None:
+                result = {"Coffee": 0, "Tea": 0, "Chocolate": 0, "Water": 0, "Juices": 0}
+            else:
+                result = {
+                    "Coffee": int(row.Coffee or 0),
+                    "Tea": int(row.Tea or 0),
+                    "Chocolate": int(row.Chocolate or 0),
+                    "Water": int(row.Water or 0),
+                    "Juices": int(row.Juices or 0),
+                }
+            return func.HttpResponse(json.dumps(result), status_code=200)
             
 
 @app.function_name(name="LoginItsl") 

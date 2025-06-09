@@ -350,6 +350,28 @@ def itsl_login_submit_data() -> Response:
             status=401
         )
 
+@app.route("/stats", methods=["GET"])
+def stats() -> str:
+    """Display real-time consumption statistics."""
+    try:
+        response = make_api_request("get_total_consumption")
+        data = response.json() if response.status_code == 200 else {}
+    except Exception as e:
+        log_error(e, {'route': 'stats'})
+        data = {}
+    return render_template("stats.html", data=data)
+
+
+@app.route("/stats_data", methods=["GET"])
+def stats_data() -> Response:
+    """Return consumption statistics as JSON."""
+    try:
+        response = make_api_request("get_total_consumption")
+        return Response(response.text, status=response.status_code, mimetype="application/json")
+    except Exception as e:
+        log_error(e, {'route': 'stats_data'})
+        return Response(status=500)
+
 @app.errorhandler(404)
 def not_found_error(error) -> Response:
     """Handle 404 errors."""

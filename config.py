@@ -30,6 +30,7 @@ class APIConfig:
             "name_to_personid": f"/name_to_personid?code={os.getenv('API_NAME_TO_PERSONID_CODE', '')}",
             "get_consumption": f"/get_consumption?code={os.getenv('API_GET_CONSUMPTION_CODE', '')}",
             "add_consumption": f"/add_consumption?code={os.getenv('API_ADD_CONSUMPTION_CODE', '')}",
+            "get_total_consumption": f"/get_total_consumption?code={os.getenv('API_GET_TOTAL_CONSUMPTION_CODE', '')}",
             "itsl_login": f"/itsl_login?code={os.getenv('API_ITSL_LOGIN_CODE', '')}"
         }
 
