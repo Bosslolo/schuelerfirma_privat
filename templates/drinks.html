@@ -224,6 +224,12 @@
         font-size: 1.1em;
         padding: 0.1em 0.3em;
       }
+
+      #costRow {
+        margin-top: 1em;
+        text-align: center;
+        font-weight: bold;
+      }
     }
 </style>
 {% endblock %}
@@ -262,6 +268,8 @@
         </tbody>
     </table>
 
+    <p id="costRow">Aktuelle Kosten: <span id="totalCost">{{ '%.2f'|format(data.TotalCost) }} €</span></p>
+
     <button id="doneBtn">Fertig</button>
 
     <form id="submitForm" method="POST" action="/submit">
@@ -275,6 +283,8 @@
 {% block scripts %}
 <script>
     const personId = "{{ data.PersonId }}";
+    const prices = {{ drink_prices | tojson }};
+    let totalCost = parseFloat("{{ '%.2f'|format(data.TotalCost) }}");
     const originalValues = {};
     const sessionIncrements = {};
 
@@ -295,6 +305,7 @@
             incButton.addEventListener('click', () => incrementDrink(drink, input, redButton, counter));
             redButton.addEventListener('click', () => reduceDrink(drink, input, redButton, counter));
         });
+        updateTotalCost();
     });
 
     function updateCounter(counter, value) {
@@ -302,10 +313,22 @@
         counter.className = 'session-counter ' + (value > 0 ? 'positive' : 'zero');
     }
 
+    function updateTotalCost() {
+        let cost = 0;
+        for (const drink in originalValues) {
+            const amount = (originalValues[drink] || 0) + (sessionIncrements[drink] || 0);
+            cost += (prices[drink] || 0) * amount;
+        }
+        totalCost = cost;
+        document.getElementById('totalCost').textContent = totalCost.toFixed(2) + ' €';
+    }
+
     function incrementDrink(drink, input, reduceButton, counter) {
         input.value = parseInt(input.value) + 1;
         sessionIncrements[drink] += 1;
         updateCounter(counter, sessionIncrements[drink]);
+
+        updateTotalCost();
 
         if (sessionIncrements[drink] > 0) {
             reduceButton.disabled = false;
@@ -317,6 +340,8 @@
             input.value = parseInt(input.value) - 1;
             sessionIncrements[drink] -= 1;
             updateCounter(counter, sessionIncrements[drink]);
+
+            updateTotalCost();
 
             if (sessionIncrements[drink] === 0) {
                 reduceButton.disabled = true;

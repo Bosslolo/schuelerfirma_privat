@@ -39,7 +39,6 @@ def decrypt(token: bytes, key: bytes) -> bytes:
     """
     return Fernet(key).decrypt(token)
 
-
 def calculate_points(consumption: dict) -> int:
     """Calculate total reward points based on consumption data.
 
@@ -62,3 +61,42 @@ def calculate_points(consumption: dict) -> int:
         if isinstance(value, (int, float)):
             points += int(value)
     return points
+  
+# --- Cost Tracking Utilities ---
+
+# Default drink prices used for cost calculations (EUR).
+DRINK_PRICES = {
+    "coffee": 1.00,
+    "chocolate": 0.50,
+    "tea": 0.50,
+    "juices": 1.50,
+    "water": 1.50,
+}
+
+
+def calculate_cost(consumption: dict) -> float:
+    """Calculate the total cost from a consumption mapping.
+
+    Parameters
+    ----------
+    consumption: dict
+        Mapping of drink type to amount consumed. Keys are compared in
+        lower case. Unknown drink types are ignored.
+
+    Returns
+    -------
+    float
+        Total cost rounded to two decimals.
+    """
+
+    total = 0.0
+    for drink, amount in consumption.items():
+        try:
+            amount_val = float(amount)
+        except (TypeError, ValueError):
+            continue
+        price = DRINK_PRICES.get(str(drink).lower())
+        if price is not None:
+            total += price * amount_val
+
+    return round(total, 2)
