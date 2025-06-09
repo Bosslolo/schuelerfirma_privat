@@ -193,8 +193,14 @@ def verify_pin() -> Union[str, Response]:
     Returns:
         Union[str, Response]: Either the consumption data page or an error message
     """
-    selected_user: str = request.form['selected_user']
-    pin: str = request.form['pin']
+    selected_user: str = request.form.get('selected_user', '').strip()
+    pin: str = request.form.get('pin', '').strip()
+    if not selected_user or not pin.isdigit():
+        app_logger.warning('Invalid verification input received')
+        return Response(
+            'Missing user or PIN. <a href="./">Back</a>',
+            status=400
+        )
     client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
 
     app_logger.info(f"PIN verification attempt for user: {selected_user}")
@@ -315,8 +321,15 @@ def itsl_login_submit_data() -> Response:
     Returns:
         Response: Flask response with authentication cookies set
     """
-    username: str = request.form["username"]
-    password: str = request.form["password"]
+    username: str = request.form.get("username", "").strip()
+    password: str = request.form.get("password", "").strip()
+    if not username or not password:
+        app_logger.warning("Login attempt with missing credentials")
+        return make_response(
+            "<br>Username and password are required.<br>"
+            "<a href='./login'>Back to login.</a>",
+            400
+        )
     client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.environ.get('REMOTE_ADDR', 'unknown'))
     
     app_logger.info(f"itslearning login attempt for user: {username} from {client_ip}")
