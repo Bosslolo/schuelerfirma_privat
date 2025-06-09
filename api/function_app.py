@@ -205,6 +205,7 @@ def add_consumption(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow]) -> 
                 return func.HttpResponse("Please check if all values are passed correctly.", status_code=500)
 
 
+
 @app.function_name(name="GetTotalConsumption")
 @app.route(route="get_total_consumption", auth_level=func.AuthLevel.FUNCTION)
 @app.generic_output_binding(arg_name="toDoItems", type="sql", CommandText="dbo.users", ConnectionStringSetting="SqlConnectionString",data_type=DataType.STRING)
@@ -227,7 +228,50 @@ def get_total_consumption(req: func.HttpRequest, toDoItems: func.Out[func.SqlRow
                     "Juices": int(row.Juices or 0),
                 }
             return func.HttpResponse(json.dumps(result), status_code=200)
-            
+
+@app.function_name(name="GetReport")
+@app.route(route="get_report", auth_level=func.AuthLevel.FUNCTION)
+def get_report(req: func.HttpRequest) -> func.HttpResponse:
+    """Return aggregated drink data for a custom date range."""
+    try:
+        body = req.get_json()
+        start_date = body.get("start_date")
+        end_date = body.get("end_date")
+    except ValueError:
+        return func.HttpResponse("Please pass valid data on the query string.", status_code=400)
+
+    if not start_date or not end_date:
+        return func.HttpResponse("Please pass 'start_date' and 'end_date'.", status_code=400)
+
+    try:
+        from datetime import datetime
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+    except ValueError:
+        return func.HttpResponse("Invalid date format. Use YYYY-MM-DD", status_code=400)
+
+    with pyodbc.connect(connectionString) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """SELECT ItslPersonId, DrinkType, COUNT(*) AS Cnt
+                       FROM dbo.drink_entries
+                       WHERE Timestamp BETWEEN ? AND ?
+                       GROUP BY ItslPersonId, DrinkType""",
+                start_dt,
+                end_dt,
+            )
+            row = cur.fetchone()
+            results = []
+            while row:
+                results.append(
+                    {
+                        "PersonId": row.ItslPersonId,
+                        "DrinkType": row.DrinkType,
+                        "Count": row.Cnt,
+                    }
+                )
+                row = cur.fetchone()
+            return func.HttpResponse(json.dumps(results), status_code=200)            
 
 @app.function_name(name="LoginItsl") 
 @app.route(route="itsl_login", auth_level=func.AuthLevel.FUNCTION)
