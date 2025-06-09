@@ -350,6 +350,42 @@ def itsl_login_submit_data() -> Response:
             status=401
         )
 
+
+@app.route('/admin', methods=['GET'])
+def admin_dashboard() -> str:
+    """Display the admin dashboard with monthly consumption report."""
+    app_logger.info("Admin dashboard accessed")
+    try:
+        response = make_api_request("admin_report")
+        if response.status_code == 200:
+            report_data = response.json().get("Report", [])
+        else:
+            app_logger.warning(
+                f"Failed to fetch admin report: HTTP {response.status_code}"
+            )
+            report_data = []
+    except Exception as e:
+        log_error(e, {'route': 'admin_dashboard'})
+        # Fallback sample data for development
+        report_data = [
+            {
+                'FullName': 'Alice Example',
+                'Coffee': 10,
+                'HotChocolate': 3,
+                'Tea': 2,
+                'Total': 15.5,
+            },
+            {
+                'FullName': 'Bob Example',
+                'Coffee': 5,
+                'HotChocolate': 1,
+                'Tea': 0,
+                'Total': 6.0,
+            },
+        ]
+
+    return render_template('admin.html', report=report_data)
+
 @app.errorhandler(404)
 def not_found_error(error) -> Response:
     """Handle 404 errors."""
