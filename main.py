@@ -9,6 +9,7 @@ import os
 import time
 from typing import Dict, List, Union, Optional, Any, Tuple
 from dataclasses import dataclass
+from cachetools import TTLCache
 from config import config
 from logging_config import (
     logger_setup, app_logger, api_logger, auth_logger, error_logger,
@@ -41,8 +42,11 @@ app.config['DEBUG'] = config.DEBUG
 # Set up Flask logging
 flask_logger = logger_setup.setup_flask_logger(app)
 
-def make_api_request(endpoint_name: str, json_data: Optional[Dict] = None, 
-                    method: str = "GET") -> requests.Response:
+# Simple TTL cache for API responses (5 minutes)
+api_cache = TTLCache(maxsize=128, ttl=300)
+
+def make_api_request(endpoint_name: str, json_data: Optional[Dict] = None,
+                    method: str = "GET", use_cache: bool = False) -> requests.Response:
     """
     Make an API request with proper logging and error handling.
     
@@ -59,6 +63,13 @@ def make_api_request(endpoint_name: str, json_data: Optional[Dict] = None,
     """
     start_time = time.time()
     url = config.api.get_url(endpoint_name)
+    cache_key = (endpoint_name,
+                 json.dumps(json_data, sort_keys=True) if json_data else None,
+                 method.upper())
+
+    if use_cache and cache_key in api_cache:
+        app_logger.debug(f"Cache hit for {endpoint_name}")
+        return api_cache[cache_key]
     
     try:
         app_logger.info(f"Making API request to {endpoint_name}: {url}")
@@ -72,8 +83,10 @@ def make_api_request(endpoint_name: str, json_data: Optional[Dict] = None,
             
         response_time = time.time() - start_time
         log_api_call(endpoint_name, method, response.status_code, response_time)
-        
+
         app_logger.info(f"API request completed: {response.status_code} in {response_time:.3f}s")
+        if use_cache and response.status_code == 200:
+            api_cache[cache_key] = response
         return response
         
     except requests.RequestException as e:
@@ -125,7 +138,7 @@ def welcome() -> str:
     app_logger.info("Welcome page accessed")
     
     try:
-        response = make_api_request("get_usernames")
+        response = make_api_request("get_usernames", use_cache=True)
         if response.status_code != 200:
             app_logger.warning(f"Failed to fetch users: HTTP {response.status_code}")
             return render_template("index.html", all_users=[])
@@ -207,7 +220,7 @@ def verify_pin() -> Union[str, Response]:
             app_logger.info(f"PIN verification successful for user: {selected_user}")
             
             # Get person ID
-            person_id_response = make_api_request("name_to_personid", {"fullName": selected_user})
+            person_id_response = make_api_request("name_to_personid", {"fullName": selected_user}, use_cache=True)
             person_data = person_id_response.json()
             person_id: str = person_data["PersonId"]
             
