@@ -1,5 +1,0 @@
-To start this web application: 
-1. Ensure docker is installed on your system and you can execute the docker command. 
-2. If not already done so, check that your current working directory is set to the one this file is in. 
-3. Run docker compose up 
-4. Voilá! You should see the web application. 

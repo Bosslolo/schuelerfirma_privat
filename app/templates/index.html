@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- External CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/index.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Reload Button -->
+    <button id="reloadButton" class="reload-btn" title="Reload Page" onclick="window.location.reload()">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+    
+    <div class="container">
+        <div class="main-container">
+            <!-- Fuzzy Search Bar -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="search-container">
+                        <div class="search-input-wrapper">
+                            <i class="fas fa-search search-icon"></i>
+                            <input type="text" id="userSearch" class="search-input" placeholder="Search users by name..." autocomplete="off">
+                            <button type="button" id="clearSearch" class="clear-search-btn" style="display: none;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="search-results-info">
+                            <span id="searchResultsCount" class="search-results-text"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4" id="userGrid">
+                {% for user in users %}
+                <div class="col-lg-3 col-md-4 col-sm-6 user-card-container" 
+                     data-user-name="{{ user.first_name }} {{ user.last_name }}"
+                     data-user-first="{{ user.first_name }}"
+                     data-user-last="{{ user.last_name }}">
+                    <a href="{{ url_for('routes.entries', user_id=user.id) }}" class="user-card" data-bs-toggle="tooltip">
+                        <div>
+                            <h5 class="user-name">{{ user.first_name }} {{ user.last_name }}</h5>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+                
+                {% if not users %}
+                <div class="col-12">
+                    <div class="empty-state">
+                        <i class="fas fa-info-circle"></i>
+                        <h4>No users found</h4>
+                        <p>Please wait 10 seconds and refresh the page. If the problem persists, please contact the administrator. 
+                            Julian Domenig +41 78 721 27 91
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- External JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+</body>
+</html>

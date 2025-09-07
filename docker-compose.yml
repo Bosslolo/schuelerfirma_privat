@@ -1,0 +1,48 @@
+services:
+  web:
+    build: .
+    container_name: web
+    ports:
+      - "5000:5000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app:cached   # hot-reload while developing (works with flask dev run)
+    # For dev server instead of gunicorn, uncomment the next two lines:
+    command: flask --app app/wsgi.py run --host=0.0.0.0 --port=5000 --debug
+    environment: 
+      - FLASK_DEBUG=1
+      - DATABASE_URL=postgresql://user:password@db:5432/db
+      - SECRET_KEY=dev-secret-key-change-in-production
+
+  db:
+    image: postgres:16
+    container_name: db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d db -h 127.0.0.1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"  # optional: expose for local tools
+
+  adminer:
+    image: adminer:4
+    container_name: adminer
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    depends_on:
+      db:
+        condition: service_started
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:

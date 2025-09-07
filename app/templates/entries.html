@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ user.first_name }} {{ user.last_name }}</title>
+    
+    <!-- External CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/entries.css') }}" rel="stylesheet">
+</head>
+<body>
+    
+    <div class="container">
+        <div class="main-container">
+            <!-- List with all beverages. To add and remove beverages and a count to already consumed beverages. -->
+            <!-- Beverage_name price-single, count, add button - field - remove button -->
+            <!-- Can only remove just added beverages and not the ones that were already consumed. -->
+            <!-- At the bottom a button to confirm the order and a button to cancel the order.
+             If pressed the order is confirmed and the page is redirected to the index page.
+             Beverages are now written to the database fixed and added to the invoice.
+             If first beverage consumption of month:
+             1. invoice created for current month
+             2. beverage added to invoice of current month
+             else:
+             1. beverage added to invoice of current month -->
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="user-info-card">
+                        <h4 class="user-info-title">{{ user.first_name }} {{ user.last_name }}</h4>
+                        <span class="user-role-badge">{{ user.role.name if user.role else 'No Role' }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Beverage Consumption Interface -->
+            <div class="beverage-section">
+                <h5 class="section-title">
+                    <i class="fas fa-coffee"></i>
+                    Beverage Selection
+                </h5>
+                
+                <div class="beverage-list">
+                    {% for beverage in beverages %}
+                        {% set price_info = price_lookup.get(beverage.id) %}
+                        {% if price_info %}
+                            <div class="beverage-item" data-beverage-id="{{ beverage.id }}">
+                                <div class="consumed-count-section">
+                                    <span class="consumed-count">0</span>
+                                    <small class="consumed-label">consumed</small>
+                                </div>
+                                
+                                <div class="beverage-info">
+                                    <h6 class="beverage-name">{{ beverage.name }}</h6>
+                                    <span class="beverage-price">{{ "%.2f"|format(price_info.price_cents / 100) }} CHF</span>
+                                </div>
+                                
+                                <div class="beverage-controls">
+                                    <div class="quantity-controls">
+                                        <button class="btn btn-outline-secondary quantity-btn" data-action="decrease">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                        <span class="quantity-display">0</span>
+                                        <button class="btn btn-outline-secondary quantity-btn" data-action="increase">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+
+            <!-- Action Buttons -->
+            <div class="action-buttons-section">
+                <button class="btn btn-primary btn-lg done-btn" id="doneBtn">
+                    <i class="fas fa-check"></i>
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmationModalLabel">
+                        <i class="fas fa-shopping-cart"></i>
+                        Confirm Order
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="order-summary-modal">
+                        <h6>Order Summary:</h6>
+                        <div id="modalOrderItems"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-success" id="confirmOrderBtn">
+                        <i class="fas fa-check"></i>
+                        Confirm Order
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Pass backend data to JavaScript -->
+    <script>
+        // Pass consumptions data to JavaScript
+        window.consumptionsData = {{ consumptions | tojson }};
+        window.userData = {{ user_data | tojson }};
+    </script>
+    
+    <!-- External JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/entries.js') }}"></script>
+</body>
+</html>
