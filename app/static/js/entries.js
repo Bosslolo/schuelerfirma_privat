@@ -263,8 +263,160 @@ class BeverageConsumption {
     }
 }
 
+// PIN Management functionality
+class PinManagement {
+    constructor() {
+        this.pinOverlay = document.getElementById('pinOverlay');
+        this.pinInput = document.getElementById('pinInput');
+        this.pinSubmit = document.getElementById('pinSubmit');
+        this.pinCancel = document.getElementById('pinCancel');
+        this.pinError = document.getElementById('pinError');
+        this.createPinBtn = document.getElementById('createPinBtn');
+        this.changePinBtn = document.getElementById('changePinBtn');
+        
+        if (this.pinOverlay) {
+            this.init();
+        }
+    }
+    
+    init() {
+        console.log('PinManagement initialized');
+        
+        // Add event listeners
+        if (this.createPinBtn) {
+            this.createPinBtn.addEventListener('click', () => this.showCreatePinOverlay());
+        }
+        
+        if (this.changePinBtn) {
+            this.changePinBtn.addEventListener('click', () => this.showChangePinMessage());
+        }
+        
+        if (this.pinSubmit) {
+            this.pinSubmit.addEventListener('click', () => this.submitPin());
+        }
+        
+        if (this.pinCancel) {
+            this.pinCancel.addEventListener('click', () => this.cancelPin());
+        }
+        
+        if (this.pinInput) {
+            this.pinInput.addEventListener('keydown', (e) => this.handleKeydown(e));
+            this.pinInput.addEventListener('input', (e) => this.handleInput(e));
+        }
+    }
+    
+    handleKeydown(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            this.submitPin();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            this.cancelPin();
+        }
+    }
+    
+    handleInput(e) {
+        // Only allow digits
+        e.target.value = e.target.value.replace(/[^0-9]/g, '');
+    }
+    
+    showCreatePinOverlay() {
+        // Clear any previous errors
+        this.pinError.style.display = 'none';
+        this.pinInput.value = '';
+        
+        // Show overlay
+        this.pinOverlay.style.display = 'flex';
+        this.pinInput.focus();
+        
+        // Prevent body scroll
+        document.body.style.overflow = 'hidden';
+    }
+    
+    showChangePinMessage() {
+        alert('Please consult with Laurin Domenig in Lela 6 for help.');
+    }
+    
+    async submitPin() {
+        const pin = this.pinInput.value.trim();
+        
+        if (!pin) {
+            this.showError('Please enter a PIN');
+            return;
+        }
+        
+        if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+            this.showError('PIN must be exactly 4 digits');
+            return;
+        }
+        
+        // Disable submit button during request
+        this.pinSubmit.disabled = true;
+        this.pinSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        try {
+            const response = await fetch('/create_user_pin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    user_id: window.userId,
+                    pin: pin 
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                // PIN created successfully
+                this.hideOverlay();
+                // Show success message and reload page to update UI
+                alert('PIN created successfully!');
+                window.location.reload();
+            } else {
+                // PIN creation failed
+                this.showError(data.error || 'Error creating PIN');
+                this.pinInput.value = '';
+                this.pinInput.focus();
+            }
+        } catch (error) {
+            console.error('PIN creation error:', error);
+            this.showError('Network error. Please try again.');
+        } finally {
+            // Re-enable submit button
+            this.pinSubmit.disabled = false;
+            this.pinSubmit.innerHTML = '<i class="fas fa-check"></i>';
+        }
+    }
+    
+    cancelPin() {
+        this.hideOverlay();
+    }
+    
+    showError(message) {
+        this.pinError.querySelector('span').textContent = message;
+        this.pinError.style.display = 'flex';
+        
+        // Hide error after 3 seconds
+        setTimeout(() => {
+            this.pinError.style.display = 'none';
+        }, 3000);
+    }
+    
+    hideOverlay() {
+        this.pinOverlay.style.animation = 'fadeOut 0.3s ease forwards';
+        document.body.style.overflow = '';
+        
+        setTimeout(() => {
+            this.pinOverlay.style.display = 'none';
+        }, 300);
+    }
+}
+
 // Initialize beverage consumption when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     new BeverageConsumption();
+    new PinManagement();
     console.log('Beverage consumption system initialized!');
 });

@@ -60,6 +60,9 @@ class consumptions(db.Model):
 
 class invoices(db.Model):
     __tablename__ = "invoices"
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'period', name='uq_invoices_user_period'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     invoice_name = db.Column(db.String(120), unique=True, nullable=False)

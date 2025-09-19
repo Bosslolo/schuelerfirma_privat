@@ -3,6 +3,8 @@ from .models import roles, beverages, users, consumptions, invoices, beverage_pr
 from . import db
 from datetime import datetime, date
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
+import hashlib
 
 bp = Blueprint("routes", __name__)
 
@@ -33,27 +35,66 @@ def check_invoice_exists(user_id):
 
     # Generate unique invoice name: "INV-YYYY-MM_count"
     invoice_name = f"INV-{current_month_year.strftime('%Y-%m')}_{count + 1}"
-    
+
     new_invoice = invoices(
         user_id=user_id,
         invoice_name=invoice_name,
         status="draft",
         period=current_month_year
     )
-    
+
     try:
         db.session.add(new_invoice)
         db.session.commit()
         return new_invoice
+    except IntegrityError:
+        # Another concurrent request likely created the invoice; rollback and fetch it
+        db.session.rollback()
+        existing_invoice = invoices.query.filter_by(
+            user_id=user_id,
+            period=current_month_year
+        ).first()
+        if existing_invoice:
+            return existing_invoice
+        # If still not found, rethrow a generic error to surface the issue
+        raise
     except Exception as e:
         db.session.rollback()
         raise Exception(f"Failed to create invoice: {str(e)}")
 
+def hash_pin(pin):
+    """Hash a PIN using SHA-256"""
+    return hashlib.sha256(pin.encode()).digest()
+
+def verify_pin(user_id, pin):
+    """Verify a PIN against the stored hash"""
+    user = users.query.get(user_id)
+    if not user or not user.pin_hash:
+        return False
+    return user.pin_hash == hash_pin(pin)
+
 @bp.route("/")
 def index():
-    # Fetch all users with their roles
-    all_users = users.query.join(roles, users.role_id == roles.id).all()
-    return render_template("index.html", users=all_users)
+    # Get current month start date
+    current_month = date.today().replace(day=1)
+    
+    # Fetch all users with their roles and total consumption for current month
+    users_with_consumption = db.session.query(
+        users,
+        roles,
+        func.coalesce(func.sum(consumptions.quantity), 0).label('total_consumption')
+    ).join(roles, users.role_id == roles.id)\
+     .outerjoin(consumptions, 
+                db.and_(consumptions.user_id == users.id,
+                       consumptions.created_at >= current_month))\
+     .group_by(users.id, roles.id)\
+     .order_by(func.coalesce(func.sum(consumptions.quantity), 0).desc())\
+     .all()
+    
+    # Extract just the user objects for template
+    sorted_users = [user_role_consumption[0] for user_role_consumption in users_with_consumption]
+    
+    return render_template("index.html", users=sorted_users)
 
 @bp.route("/entries")
 def entries():
@@ -61,14 +102,14 @@ def entries():
     
     if not user_id:
         # Redirect to index if no user_id provided
-        return render_template("index.html", users=users.query.join(roles, users.role_id == roles.id).all())
+        return redirect(url_for('routes.index'))
     
     # Fetch the specific user with their role
     user = users.query.join(roles, users.role_id == roles.id).filter(users.id == user_id).first()
     
     if not user:
         # Redirect to index if user not found
-        return render_template("index.html", users=users.query.join(roles, users.role_id == roles.id).all())
+        return redirect(url_for('routes.index'))
     
     # Fetch user's beverage consumptions with counts per beverage
     consumption_results = db.session.query(
@@ -113,6 +154,94 @@ def entries():
                          consumptions=user_consumptions,
                          beverages=all_beverages,
                          price_lookup=price_lookup)
+
+@bp.route("/verify_pin", methods=["POST"])
+def verify_pin_route():
+    """Verify PIN for a specific user"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        pin = data.get('pin', '').strip()
+        
+        if not user_id or not pin:
+            return jsonify({"error": "User ID and PIN are required"}), 400
+        
+        # Use existing verify_pin function
+        if verify_pin(user_id, pin):
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "Invalid PIN"}), 401
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to verify PIN: {str(e)}"}), 500
+
+@bp.route("/check_user_pin", methods=["POST"])
+def check_user_pin():
+    """Check if a user has a PIN set"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+        
+        user = users.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        return jsonify({
+            "success": True,
+            "has_pin": user.pin_hash is not None
+        })
+        
+    except Exception as e:
+        return jsonify({"error": f"Failed to check user PIN: {str(e)}"}), 500
+
+@bp.route("/create_user_pin", methods=["POST"])
+def create_user_pin():
+    """Create PIN for a specific user"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No JSON data provided"}), 400
+            
+        user_id = data.get('user_id')
+        pin = data.get('pin', '').strip()
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        if not pin:
+            return jsonify({"error": "PIN is required"}), 400
+        
+        # Get the specific user
+        user = users.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        # Check if user already has a PIN set
+        if user.pin_hash:
+            return jsonify({"error": "User already has a PIN set"}), 400
+        
+        # Use existing hash_pin function to hash the PIN
+        pin_hash = hash_pin(pin)
+        user.pin_hash = pin_hash
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": "PIN created successfully",
+            "user": {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name
+            }
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to create PIN: {str(e)}"}), 500
 
 @bp.route("/add_consumption", methods=["POST"])
 def add_consumption():
