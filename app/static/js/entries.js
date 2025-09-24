@@ -34,7 +34,7 @@ class BeverageConsumption {
             const beverageId = item.dataset.beverageId;
             const name = item.querySelector('.beverage-name').textContent;
             const priceText = item.querySelector('.beverage-price').textContent;
-            const price = parseFloat(priceText.replace(' CHF', ''));
+            const price = parseFloat(priceText.replace(' €', ''));
             
             this.beverageData.set(beverageId, { name, price });
         });

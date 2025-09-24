@@ -296,8 +296,792 @@ class UserClickHandler {
     }
 }
 
+// Development User Creation Modal
+class DevUserModal {
+    constructor() {
+        this.modal = document.getElementById('addUserModal');
+        this.form = document.getElementById('addUserForm');
+        this.saveBtn = document.getElementById('saveUserBtn');
+        this.alert = document.getElementById('addUserAlert');
+        this.roleSelect = document.getElementById('roleSelect');
+        
+        if (!this.modal) return; // Only initialize if modal exists (dev mode)
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadRoles();
+        this.setupEventListeners();
+    }
+    
+    async loadRoles() {
+        try {
+            const response = await fetch('/dev/roles');
+            const roles = await response.json();
+            
+            this.roleSelect.innerHTML = '<option value="">Select a role...</option>';
+            roles.forEach(role => {
+                const option = document.createElement('option');
+                option.value = role.id;
+                option.textContent = role.name;
+                this.roleSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Failed to load roles:', error);
+            this.showAlert('Failed to load roles', 'danger');
+        }
+    }
+    
+    setupEventListeners() {
+        this.saveBtn.addEventListener('click', () => this.saveUser());
+        
+        // Clear form when modal is hidden
+        this.modal.addEventListener('hidden.bs.modal', () => {
+            this.form.reset();
+            this.hideAlert();
+        });
+    }
+    
+    async saveUser() {
+        const formData = new FormData(this.form);
+        const data = {
+            first_name: formData.get('first_name'),
+            last_name: formData.get('last_name'),
+            email: formData.get('email'),
+            role_id: formData.get('role_id')
+        };
+        
+        // Basic validation
+        if (!data.first_name || !data.last_name || !data.role_id) {
+            this.showAlert('Please fill in all required fields', 'danger');
+            return;
+        }
+        
+        this.saveBtn.disabled = true;
+        this.saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+        
+        try {
+            const response = await fetch('/dev/add_user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+                setTimeout(() => {
+                    // Close modal and reload page to show new user
+                    const modalInstance = bootstrap.Modal.getInstance(this.modal);
+                    modalInstance.hide();
+                    window.location.reload();
+                }, 1500);
+            } else {
+                this.showAlert(result.error || 'Failed to create user', 'danger');
+            }
+        } catch (error) {
+            console.error('Error creating user:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
+        } finally {
+            this.saveBtn.disabled = false;
+            this.saveBtn.innerHTML = '<i class="fas fa-save"></i> Create User';
+        }
+    }
+    
+    showAlert(message, type) {
+        this.alert.className = `alert alert-${type}`;
+        this.alert.textContent = message;
+        this.alert.style.display = 'block';
+    }
+    
+    hideAlert() {
+        this.alert.style.display = 'none';
+    }
+}
+
+// Development Beverage Management Modal
+class DevBeverageModal {
+    constructor() {
+        this.modal = document.getElementById('addBeverageModal');
+        this.form = document.getElementById('addBeverageForm');
+        this.saveBtn = document.getElementById('saveBeverageBtn');
+        this.alert = document.getElementById('addBeverageAlert');
+        
+        if (!this.modal) return;
+        
+        this.init();
+    }
+    
+    init() {
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        this.saveBtn.addEventListener('click', () => this.saveBeverage());
+        
+        this.modal.addEventListener('hidden.bs.modal', () => {
+            this.form.reset();
+            this.hideAlert();
+        });
+    }
+    
+    async saveBeverage() {
+        const formData = new FormData(this.form);
+        const data = {
+            name: formData.get('name'),
+            category: formData.get('category')
+        };
+        
+        if (!data.name) {
+            this.showAlert('Please enter an item name', 'danger');
+            return;
+        }
+        
+        this.saveBtn.disabled = true;
+        this.saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+        
+        try {
+            const response = await fetch('/dev/beverages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+                setTimeout(() => {
+                    const modalInstance = bootstrap.Modal.getInstance(this.modal);
+                    modalInstance.hide();
+                }, 1500);
+            } else {
+                this.showAlert(result.error || 'Failed to create beverage', 'danger');
+            }
+        } catch (error) {
+            console.error('Error creating beverage:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
+        } finally {
+            this.saveBtn.disabled = false;
+            this.saveBtn.innerHTML = '<i class="fas fa-save"></i> Create Beverage';
+        }
+    }
+    
+    showAlert(message, type) {
+        this.alert.className = `alert alert-${type}`;
+        this.alert.textContent = message;
+        this.alert.style.display = 'block';
+    }
+    
+    hideAlert() {
+        this.alert.style.display = 'none';
+    }
+}
+
+// Development Price Management Modal
+class DevPriceModal {
+    constructor() {
+        this.modal = document.getElementById('setPricesModal');
+        this.roleSelect = document.getElementById('priceRoleSelect');
+        this.container = document.getElementById('priceFormContainer');
+        this.saveBtn = document.getElementById('savePricesBtn');
+        this.alert = document.getElementById('setPricesAlert');
+        this.beverages = [];
+        
+        if (!this.modal) return;
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadRoles();
+        this.loadBeverages();
+        this.setupEventListeners();
+    }
+    
+    async loadRoles() {
+        try {
+            const response = await fetch('/dev/roles');
+            const roles = await response.json();
+            
+            this.roleSelect.innerHTML = '<option value="">Select a role...</option>';
+            roles.forEach(role => {
+                const option = document.createElement('option');
+                option.value = role.id;
+                option.textContent = role.name;
+                this.roleSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Failed to load roles:', error);
+        }
+    }
+    
+    async loadBeverages() {
+        try {
+            const response = await fetch('/dev/beverages');
+            this.beverages = await response.json();
+        } catch (error) {
+            console.error('Failed to load beverages:', error);
+        }
+    }
+    
+    setupEventListeners() {
+        // Load prices immediately when modal opens
+        this.modal.addEventListener('shown.bs.modal', () => this.loadPrices());
+        this.saveBtn.addEventListener('click', () => this.savePrices());
+        
+        this.modal.addEventListener('hidden.bs.modal', () => {
+            this.container.innerHTML = '<p class="text-muted">Loading prices...</p>';
+            this.saveBtn.style.display = 'none';
+            this.hideAlert();
+        });
+    }
+    
+    async loadPrices() {
+        // Load existing unified prices
+        let existingPrices = {};
+        try {
+            const response = await fetch('/dev/prices');
+            const prices = await response.json();
+            existingPrices = prices.reduce((acc, price) => {
+                acc[price.beverage_id] = price.price_cents;
+                return acc;
+            }, {});
+        } catch (error) {
+            console.error('Failed to load existing prices:', error);
+        }
+        
+        // Create unified price form
+        let html = '<h6>Set unified prices for all roles (in cents):</h6>';
+        this.beverages.forEach(beverage => {
+            const existingPrice = existingPrices[beverage.id] || '';
+            const categoryIcon = beverage.category === 'food' ? '🍽️' : '🥤';
+            html += `
+                <div class="row mb-2">
+                    <div class="col-6">
+                        <label class="form-label">${categoryIcon} ${beverage.name}</label>
+                    </div>
+                    <div class="col-6">
+                        <input type="number" class="form-control price-input" 
+                               data-beverage-id="${beverage.id}" 
+                               value="${existingPrice}" 
+                               placeholder="Price in cents" min="0" step="1">
+                    </div>
+                </div>
+            `;
+        });
+        
+        this.container.innerHTML = html;
+        this.saveBtn.style.display = 'block';
+    }
+    
+    async savePrices() {
+        const priceInputs = this.container.querySelectorAll('.price-input');
+        
+        const prices = [];
+        priceInputs.forEach(input => {
+            const beverageId = input.dataset.beverageId;
+            const priceCents = input.value;
+            
+            if (priceCents && priceCents > 0) {
+                prices.push({
+                    beverage_id: parseInt(beverageId),
+                    price_cents: parseInt(priceCents)
+                });
+            }
+        });
+        
+        if (prices.length === 0) {
+            this.showAlert('Please set at least one price', 'danger');
+            return;
+        }
+        
+        this.saveBtn.disabled = true;
+        this.saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        
+        try {
+            const response = await fetch('/dev/prices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prices: prices
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+                setTimeout(() => {
+                    const modalInstance = bootstrap.Modal.getInstance(this.modal);
+                    modalInstance.hide();
+                }, 1500);
+            } else {
+                this.showAlert(result.error || 'Failed to save prices', 'danger');
+            }
+        } catch (error) {
+            console.error('Error saving prices:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
+        } finally {
+            this.saveBtn.disabled = false;
+            this.saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Prices';
+        }
+    }
+    
+    showAlert(message, type) {
+        this.alert.className = `alert alert-${type}`;
+        this.alert.textContent = message;
+        this.alert.style.display = 'block';
+    }
+    
+    hideAlert() {
+        this.alert.style.display = 'none';
+    }
+}
+
+// Development Role Management Modal
+class DevRoleModal {
+    constructor() {
+        this.modal = document.getElementById('manageRolesModal');
+        this.form = document.getElementById('addRoleForm');
+        this.saveBtn = document.getElementById('saveRoleBtn');
+        this.rolesList = document.getElementById('rolesList');
+        this.alert = document.getElementById('manageRolesAlert');
+        
+        if (!this.modal) return;
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadRoles();
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        this.saveBtn.addEventListener('click', () => this.saveRole());
+        
+        this.modal.addEventListener('hidden.bs.modal', () => {
+            this.form.reset();
+            this.hideAlert();
+        });
+    }
+    
+    async loadRoles() {
+        try {
+            const response = await fetch('/dev/roles_manage');
+            const roles = await response.json();
+            
+            this.rolesList.innerHTML = '';
+            roles.forEach(role => {
+                const roleItem = document.createElement('div');
+                roleItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                roleItem.innerHTML = `
+                    <div>
+                        <span class="fw-bold">${role.name}</span>
+                        <small class="text-muted d-block">ID: ${role.id}</small>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm" onclick="devRoleModal.deleteRole(${role.id}, '${role.name}')" title="Delete Role">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                this.rolesList.appendChild(roleItem);
+            });
+        } catch (error) {
+            console.error('Failed to load roles:', error);
+        }
+    }
+    
+    async saveRole() {
+        const formData = new FormData(this.form);
+        const data = {
+            name: formData.get('name')
+        };
+        
+        if (!data.name) {
+            this.showAlert('Please enter a role name', 'danger');
+            return;
+        }
+        
+        this.saveBtn.disabled = true;
+        this.saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+        
+        try {
+            const response = await fetch('/dev/roles_manage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+                this.form.reset();
+                this.loadRoles(); // Reload the roles list
+            } else {
+                this.showAlert(result.error || 'Failed to create role', 'danger');
+            }
+        } catch (error) {
+            console.error('Error creating role:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
+        } finally {
+            this.saveBtn.disabled = false;
+            this.saveBtn.innerHTML = '<i class="fas fa-plus"></i> Add Role';
+        }
+    }
+    
+    async deleteRole(roleId, roleName) {
+        if (!confirm(`Are you sure you want to delete the role "${roleName}"?\n\nThis action cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/dev/delete_role/${roleId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+                this.loadRoles(); // Reload the roles list
+            } else {
+                this.showAlert(result.error || 'Failed to delete role', 'danger');
+            }
+        } catch (error) {
+            console.error('Error deleting role:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+    
+    showAlert(message, type) {
+        this.alert.className = `alert alert-${type}`;
+        this.alert.textContent = message;
+        this.alert.style.display = 'block';
+    }
+    
+    hideAlert() {
+        this.alert.style.display = 'none';
+    }
+}
+
+// Development User Management Modal
+class DevUserManagementModal {
+    constructor() {
+        this.modal = document.getElementById('manageUsersModal');
+        this.usersList = document.getElementById('usersList');
+        this.alert = document.getElementById('manageUsersAlert');
+        
+        if (!this.modal) return;
+        
+        this.init();
+    }
+    
+    init() {
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        this.modal.addEventListener('shown.bs.modal', () => {
+            this.loadUsers();
+        });
+        
+        this.modal.addEventListener('hidden.bs.modal', () => {
+            this.hideAlert();
+        });
+    }
+    
+    async loadUsers() {
+        try {
+            const response = await fetch('/dev/users_manage');
+            const users = await response.json();
+            
+            this.usersList.innerHTML = '';
+            users.forEach(user => {
+                const userItem = document.createElement('div');
+                userItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                userItem.innerHTML = `
+                    <div>
+                        <span class="fw-bold">${user.first_name} ${user.last_name}</span>
+                        <small class="text-muted d-block">
+                            Role: ${user.role_name} | 
+                            Email: ${user.email || 'None'} | 
+                            PIN: ${user.has_pin ? 'Set' : 'Not set'}
+                        </small>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm" onclick="devUserManagementModal.deleteUser(${user.id}, '${user.first_name} ${user.last_name}')" title="Delete User">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                this.usersList.appendChild(userItem);
+            });
+        } catch (error) {
+            console.error('Failed to load users:', error);
+            this.showAlert('Failed to load users', 'danger');
+        }
+    }
+    
+    async deleteUser(userId, userName) {
+        if (!confirm(`Are you sure you want to delete the user "${userName}"?\n\nThis will also delete all their consumptions and invoices.\n\nThis action cannot be undone.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/dev/delete_user/${userId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+                this.loadUsers(); // Reload the users list
+            } else {
+                this.showAlert(result.error || 'Failed to delete user', 'danger');
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+    
+    showAlert(message, type) {
+        this.alert.className = `alert alert-${type}`;
+        this.alert.textContent = message;
+        this.alert.style.display = 'block';
+    }
+    
+    hideAlert() {
+        this.alert.style.display = 'none';
+    }
+}
+
+// Development Item Management Modal
+class DevItemModal {
+    constructor() {
+        this.modal = document.getElementById('manageItemsModal');
+        this.itemsList = document.getElementById('itemsList');
+        this.alert = document.getElementById('manageItemsAlert');
+        
+        if (!this.modal) return;
+        
+        this.init();
+    }
+    
+    init() {
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        this.modal.addEventListener('shown.bs.modal', () => {
+            this.loadItems();
+        });
+        
+        this.modal.addEventListener('hidden.bs.modal', () => {
+            this.hideAlert();
+        });
+    }
+    
+    async loadItems() {
+        try {
+            const response = await fetch('/dev/beverages');
+            const items = await response.json();
+            
+            this.itemsList.innerHTML = '';
+            items.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'list-group-item d-flex justify-content-between align-items-center';
+                
+                const categoryIcon = item.category === 'food' ? '🍽️' : '🥤';
+                const categoryText = item.category === 'food' ? 'Food' : 'Drink';
+                
+                itemElement.innerHTML = `
+                    <div>
+                        <span class="fw-bold">${categoryIcon} ${item.name}</span>
+                        <small class="text-muted d-block">
+                            Category: ${categoryText} | ID: ${item.id}
+                        </small>
+                    </div>
+                    <button class="btn btn-outline-danger btn-sm" onclick="devItemModal.deleteItem(${item.id}, '${item.name}', '${item.category}')" title="Delete Item">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                this.itemsList.appendChild(itemElement);
+            });
+        } catch (error) {
+            console.error('Failed to load items:', error);
+            this.showAlert('Failed to load items', 'danger');
+        }
+    }
+    
+    async deleteItem(itemId, itemName, itemCategory) {
+        const categoryText = itemCategory === 'food' ? 'food item' : 'beverage';
+        
+        try {
+            // First, try to delete without force
+            const response = await fetch(`/dev/delete_beverage/${itemId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+                this.loadItems(); // Reload the items list
+                return;
+            }
+            
+            // If deletion failed due to related data, show warning dialog
+            if (result.has_related_data) {
+                const priceText = result.price_count > 0 ? `${result.price_count} price(s)` : '';
+                const consumptionText = result.consumption_count > 0 ? `${result.consumption_count} consumption(s)` : '';
+                const relatedDataText = [priceText, consumptionText].filter(Boolean).join(' and ');
+                
+                const warningMessage = `The ${categoryText} "${itemName}" has ${relatedDataText} associated with it.\n\n` +
+                    `If you delete it, ALL related data will be permanently removed:\n` +
+                    `- All consumption records for this item\n` +
+                    `- All price settings for this item\n\n` +
+                    `This action cannot be undone!\n\n` +
+                    `Do you want to proceed with deletion?`;
+                
+                if (confirm(warningMessage)) {
+                    // User confirmed, try deletion with force_delete
+                    const forceResponse = await fetch(`/dev/delete_beverage/${itemId}`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ force_delete: true })
+                    });
+                    
+                    const forceResult = await forceResponse.json();
+                    
+                    if (forceResult.success) {
+                        this.showAlert(forceResult.message, 'success');
+                        this.loadItems(); // Reload the items list
+                    } else {
+                        this.showAlert(forceResult.error || 'Failed to delete item', 'danger');
+                    }
+                }
+            } else {
+                // Other error
+                this.showAlert(result.error || 'Failed to delete item', 'danger');
+            }
+        } catch (error) {
+            console.error('Error deleting item:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
+        }
+    }
+    
+    showAlert(message, type) {
+        this.alert.className = `alert alert-${type}`;
+        this.alert.textContent = message;
+        this.alert.style.display = 'block';
+    }
+    
+    hideAlert() {
+        this.alert.style.display = 'none';
+    }
+}
+
+// Development Data Deletion Modal
+class DevDeleteModal {
+    constructor() {
+        this.modal = document.getElementById('deleteDataModal');
+        this.confirmBtn = document.getElementById('confirmDeleteBtn');
+        this.alert = document.getElementById('deleteDataAlert');
+        
+        if (!this.modal) return;
+        
+        this.init();
+    }
+    
+    init() {
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        this.confirmBtn.addEventListener('click', () => this.deleteData());
+        
+        this.modal.addEventListener('hidden.bs.modal', () => {
+            // Uncheck all checkboxes
+            const checkboxes = this.modal.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            this.hideAlert();
+        });
+    }
+    
+    async deleteData() {
+        const checkboxes = this.modal.querySelectorAll('input[type="checkbox"]:checked');
+        const deleteTypes = Array.from(checkboxes).map(cb => cb.value);
+        
+        if (deleteTypes.length === 0) {
+            this.showAlert('Please select at least one data type to delete', 'danger');
+            return;
+        }
+        
+        this.confirmBtn.disabled = true;
+        this.confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+        
+        try {
+            const response = await fetch('/dev/delete_data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ delete_types: deleteTypes })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+                setTimeout(() => {
+                    const modalInstance = bootstrap.Modal.getInstance(this.modal);
+                    modalInstance.hide();
+                    window.location.reload(); // Reload to reflect changes
+                }, 2000);
+            } else {
+                this.showAlert(result.error || 'Failed to delete data', 'danger');
+            }
+        } catch (error) {
+            console.error('Error deleting data:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
+        } finally {
+            this.confirmBtn.disabled = false;
+            this.confirmBtn.innerHTML = '<i class="fas fa-trash"></i> Delete Selected';
+        }
+    }
+    
+    showAlert(message, type) {
+        this.alert.className = `alert alert-${type}`;
+        this.alert.textContent = message;
+        this.alert.style.display = 'block';
+    }
+    
+    hideAlert() {
+        this.alert.style.display = 'none';
+    }
+}
+
 // Initialize everything when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     new UserSearch();
     new UserClickHandler();
+    new DevUserModal();
+    new DevBeverageModal();
+    new DevPriceModal();
+    new DevRoleModal();
+    new DevUserManagementModal();
+    new DevItemModal();
+    new DevDeleteModal();
+    
+    // Make modals globally accessible for onclick handlers
+    window.devRoleModal = new DevRoleModal();
+    window.devUserManagementModal = new DevUserManagementModal();
+    window.devItemModal = new DevItemModal();
 });

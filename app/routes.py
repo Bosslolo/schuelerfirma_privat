@@ -1,10 +1,11 @@
-from flask import Blueprint, jsonify, render_template, request, redirect, url_for, flash
+from flask import Blueprint, jsonify, render_template, request, redirect, url_for, flash, abort
 from .models import roles, beverages, users, consumptions, invoices, beverage_prices
 from . import db
 from datetime import datetime, date
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 import hashlib
+import os
 
 bp = Blueprint("routes", __name__)
 
@@ -94,7 +95,428 @@ def index():
     # Extract just the user objects for template
     sorted_users = [user_role_consumption[0] for user_role_consumption in users_with_consumption]
     
-    return render_template("index.html", users=sorted_users)
+    is_dev = os.getenv('FLASK_ENV') == 'development'
+    return render_template("index.html", users=sorted_users, is_dev=is_dev)
+
+
+@bp.route("/dev/add_user", methods=["GET", "POST"])
+def dev_add_user():
+    """Development-only simple user creation form."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+
+    # Ensure at least one role exists
+    available_roles = roles.query.all()
+    if not available_roles:
+        # Create a default role for convenience
+        default_role = roles(name="Default")
+        db.session.add(default_role)
+        db.session.commit()
+        available_roles = [default_role]
+
+    if request.method == "POST":
+        # Handle both form data and JSON requests
+        if request.is_json:
+            data = request.get_json()
+            first_name = data.get("first_name", "").strip()
+            last_name = data.get("last_name", "").strip()
+            email = data.get("email", "").strip() or None
+            role_id = data.get("role_id")
+        else:
+            first_name = request.form.get("first_name", "").strip()
+            last_name = request.form.get("last_name", "").strip()
+            email = request.form.get("email", "").strip() or None
+            role_id = request.form.get("role_id")
+
+        if not first_name or not last_name or not role_id:
+            if request.is_json:
+                return jsonify({"success": False, "error": "First name, last name and role are required"}), 400
+            flash("First name, last name and role are required", "danger")
+            return render_template("dev_add_user.html", roles=available_roles)
+
+        try:
+            role_id = int(role_id)
+        except ValueError:
+            if request.is_json:
+                return jsonify({"success": False, "error": "Invalid role selected"}), 400
+            flash("Invalid role selected", "danger")
+            return render_template("dev_add_user.html", roles=available_roles)
+
+        try:
+            new_user = users(first_name=first_name, last_name=last_name, email=email, role_id=role_id)
+            db.session.add(new_user)
+            db.session.commit()
+            
+            if request.is_json:
+                return jsonify({
+                    "success": True, 
+                    "message": f"User {first_name} {last_name} created successfully",
+                    "user": {
+                        "id": new_user.id,
+                        "first_name": new_user.first_name,
+                        "last_name": new_user.last_name
+                    }
+                })
+            
+            flash(f"User {first_name} {last_name} created", "success")
+            return redirect(url_for('routes.index'))
+        except Exception as e:
+            db.session.rollback()
+            if request.is_json:
+                return jsonify({"success": False, "error": f"Failed to create user: {str(e)}"}), 500
+            flash(f"Failed to create user: {str(e)}", "danger")
+            return render_template("dev_add_user.html", roles=available_roles)
+
+    return render_template("dev_add_user.html", roles=available_roles)
+
+@bp.route("/dev/roles", methods=["GET"])
+def dev_get_roles():
+    """Development-only endpoint to get available roles."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    available_roles = roles.query.all()
+    if not available_roles:
+        # Create a default role for convenience
+        default_role = roles(name="Default")
+        db.session.add(default_role)
+        db.session.commit()
+        available_roles = [default_role]
+    
+    return jsonify([{"id": role.id, "name": role.name} for role in available_roles])
+
+@bp.route("/dev/beverages", methods=["GET", "POST"])
+def dev_beverages():
+    """Development-only beverage management."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    if request.method == "POST":
+        data = request.get_json()
+        name = data.get("name", "").strip()
+        category = data.get("category", "drink")
+        
+        if not name:
+            return jsonify({"success": False, "error": "Beverage name is required"}), 400
+        
+        if category not in ['drink', 'food']:
+            return jsonify({"success": False, "error": "Category must be 'drink' or 'food'"}), 400
+        
+        try:
+            new_beverage = beverages(name=name, category=category, status=True)
+            db.session.add(new_beverage)
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "message": f"{category.title()} '{name}' created successfully",
+                "beverage": {"id": new_beverage.id, "name": new_beverage.name, "category": new_beverage.category}
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "error": f"Failed to create beverage: {str(e)}"}), 500
+    
+    # GET request - return all beverages
+    all_beverages = beverages.query.filter_by(status=True).all()
+    return jsonify([{"id": bev.id, "name": bev.name, "category": bev.category} for bev in all_beverages])
+
+@bp.route("/dev/prices", methods=["GET", "POST"])
+def dev_prices():
+    """Development-only unified price management."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    if request.method == "POST":
+        data = request.get_json()
+        prices = data.get("prices", [])  # Array of {beverage_id, price_cents}
+        
+        if not prices:
+            return jsonify({"success": False, "error": "Prices are required"}), 400
+        
+        try:
+            # Get all roles
+            all_roles = roles.query.all()
+            
+            # Update prices for ALL roles
+            for role in all_roles:
+                # Remove existing prices for this role
+                beverage_prices.query.filter_by(role_id=role.id).delete()
+                
+                # Add new prices for this role
+                for price_data in prices:
+                    beverage_id = price_data.get("beverage_id")
+                    price_cents = price_data.get("price_cents")
+                    
+                    if beverage_id and price_cents is not None:
+                        new_price = beverage_prices(
+                            role_id=role.id,
+                            beverage_id=beverage_id,
+                            price_cents=int(price_cents)
+                        )
+                        db.session.add(new_price)
+            
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "message": f"Unified prices updated successfully for all {len(all_roles)} roles"
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "error": f"Failed to update prices: {str(e)}"}), 500
+    
+    # GET request - return unified prices (from first role as template)
+    try:
+        first_role = roles.query.first()
+        if not first_role:
+            return jsonify([])
+        
+        existing_prices = beverage_prices.query.filter_by(role_id=first_role.id).all()
+        return jsonify([{
+            "beverage_id": price.beverage_id,
+            "price_cents": price.price_cents
+        } for price in existing_prices])
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Failed to load prices: {str(e)}"}), 500
+
+@bp.route("/dev/roles_manage", methods=["GET", "POST"])
+def dev_roles_manage():
+    """Development-only role management."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    if request.method == "POST":
+        data = request.get_json()
+        name = data.get("name", "").strip()
+        
+        if not name:
+            return jsonify({"success": False, "error": "Role name is required"}), 400
+        
+        # Check if role with this name already exists
+        existing_role = roles.query.filter_by(name=name).first()
+        if existing_role:
+            return jsonify({"success": False, "error": f"Role '{name}' already exists"}), 400
+        
+        try:
+            new_role = roles(name=name)
+            db.session.add(new_role)
+            db.session.commit()
+            
+            return jsonify({
+                "success": True,
+                "message": f"Role '{name}' created successfully",
+                "role": {"id": new_role.id, "name": new_role.name}
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "error": f"Failed to create role: {str(e)}"}), 500
+    
+    # GET request - return all roles
+    all_roles = roles.query.all()
+    return jsonify([{"id": role.id, "name": role.name} for role in all_roles])
+
+@bp.route("/dev/delete_role/<int:role_id>", methods=["DELETE"])
+def dev_delete_role(role_id):
+    """Development-only individual role deletion."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    try:
+        role = roles.query.get(role_id)
+        if not role:
+            return jsonify({"success": False, "error": "Role not found"}), 404
+        
+        # Check if role has users
+        user_count = users.query.filter_by(role_id=role_id).count()
+        if user_count > 0:
+            return jsonify({
+                "success": False, 
+                "error": f"Cannot delete role '{role.name}' - it has {user_count} user(s) assigned. Delete users first."
+            }), 400
+        
+        role_name = role.name
+        roles.query.filter_by(id=role_id).delete()
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"Role '{role_name}' deleted successfully"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to delete role: {str(e)}"}), 500
+
+@bp.route("/dev/delete_user/<int:user_id>", methods=["DELETE"])
+def dev_delete_user(user_id):
+    """Development-only individual user deletion."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    try:
+        user = users.query.get(user_id)
+        if not user:
+            return jsonify({"success": False, "error": "User not found"}), 404
+        
+        user_name = f"{user.first_name} {user.last_name}"
+        
+        # Delete related data first
+        consumptions.query.filter_by(user_id=user_id).delete()
+        invoices.query.filter_by(user_id=user_id).delete()
+        
+        # Delete the user
+        users.query.filter_by(id=user_id).delete()
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"User '{user_name}' and all related data deleted successfully"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to delete user: {str(e)}"}), 500
+
+@bp.route("/dev/users_manage", methods=["GET"])
+def dev_users_manage():
+    """Development-only user management - get all users."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    try:
+        all_users = db.session.query(users, roles).join(roles, users.role_id == roles.id).all()
+        users_data = []
+        
+        for user, role in all_users:
+            users_data.append({
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "role_name": role.name,
+                "has_pin": user.pin_hash is not None
+            })
+        
+        return jsonify(users_data)
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Failed to load users: {str(e)}"}), 500
+
+@bp.route("/dev/delete_beverage/<int:beverage_id>", methods=["DELETE"])
+def dev_delete_beverage(beverage_id):
+    """Development-only individual beverage deletion."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    try:
+        beverage = beverages.query.get(beverage_id)
+        if not beverage:
+            return jsonify({"success": False, "error": "Beverage not found"}), 404
+        
+        # Check if beverage has prices or consumptions
+        price_count = beverage_prices.query.filter_by(beverage_id=beverage_id).count()
+        consumption_count = consumptions.query.filter_by(beverage_id=beverage_id).count()
+        
+        # Get the force_delete parameter from request
+        force_delete = False
+        try:
+            if request.is_json:
+                data = request.get_json() or {}
+                force_delete = data.get('force_delete', False)
+        except Exception:
+            # If JSON parsing fails, default to False
+            force_delete = False
+        
+        if (price_count > 0 or consumption_count > 0) and not force_delete:
+            return jsonify({
+                "success": False, 
+                "error": f"Cannot delete '{beverage.name}' - it has {price_count} price(s) and {consumption_count} consumption(s).",
+                "has_related_data": True,
+                "price_count": price_count,
+                "consumption_count": consumption_count,
+                "beverage_name": beverage.name
+            }), 400
+        
+        beverage_name = beverage.name
+        beverage_category = beverage.category
+        
+        # If force_delete is True, delete all related data first
+        if force_delete:
+            # Delete all consumptions for this beverage
+            if consumption_count > 0:
+                consumptions.query.filter_by(beverage_id=beverage_id).delete()
+            
+            # Delete all prices for this beverage
+            if price_count > 0:
+                beverage_prices.query.filter_by(beverage_id=beverage_id).delete()
+        
+        # Delete the beverage itself
+        beverages.query.filter_by(id=beverage_id).delete()
+        db.session.commit()
+        
+        message = f"{beverage_category.title()} '{beverage_name}' deleted successfully"
+        if force_delete and (price_count > 0 or consumption_count > 0):
+            message += f" (including {consumption_count} consumption(s) and {price_count} price(s))"
+        
+        return jsonify({
+            "success": True,
+            "message": message
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to delete beverage: {str(e)}"}), 500
+
+@bp.route("/dev/delete_data", methods=["POST"])
+def dev_delete_data():
+    """Development-only data deletion."""
+    if os.getenv('FLASK_ENV') != 'development':
+        abort(404)
+    
+    data = request.get_json()
+    delete_types = data.get("delete_types", [])
+    
+    if not delete_types:
+        return jsonify({"success": False, "error": "No data types selected for deletion"}), 400
+    
+    try:
+        deleted_items = []
+        
+        if "consumptions" in delete_types:
+            count = consumptions.query.count()
+            consumptions.query.delete()
+            deleted_items.append(f"{count} consumptions")
+        
+        if "prices" in delete_types:
+            count = beverage_prices.query.count()
+            beverage_prices.query.delete()
+            deleted_items.append(f"{count} prices")
+        
+        if "beverages" in delete_types:
+            count = beverages.query.count()
+            beverages.query.delete()
+            deleted_items.append(f"{count} beverages/food")
+        
+        if "users" in delete_types:
+            count = users.query.count()
+            users.query.delete()
+            deleted_items.append(f"{count} users")
+        
+        if "roles" in delete_types:
+            count = roles.query.count()
+            roles.query.delete()
+            deleted_items.append(f"{count} roles")
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"Successfully deleted: {', '.join(deleted_items)}"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to delete data: {str(e)}"}), 500
 
 @bp.route("/entries")
 def entries():

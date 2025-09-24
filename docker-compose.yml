@@ -12,7 +12,8 @@ services:
     # For dev server instead of gunicorn, uncomment the next two lines:
     command: flask --app app/wsgi.py run --host=0.0.0.0 --port=5000 --debug
     environment: 
-      - FLASK_DEBUG=1
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
       - DATABASE_URL=postgresql://user:password@db:5432/db
       - SECRET_KEY=dev-secret-key-change-in-production
 

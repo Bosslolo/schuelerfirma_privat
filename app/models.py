@@ -23,6 +23,7 @@ class beverages(db.Model):
     __tablename__ = "beverages"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+    category = db.Column(db.String(50), nullable=False, default='drink')  # 'drink' or 'food'
     status = db.Column(db.Boolean, nullable=False, default=True)  # active, inactive
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
