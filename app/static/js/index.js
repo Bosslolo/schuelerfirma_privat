@@ -486,11 +486,12 @@ class DevBeverageModal {
 class DevPriceModal {
     constructor() {
         this.modal = document.getElementById('setPricesModal');
-        this.roleSelect = document.getElementById('priceRoleSelect');
         this.container = document.getElementById('priceFormContainer');
         this.saveBtn = document.getElementById('savePricesBtn');
         this.alert = document.getElementById('setPricesAlert');
         this.beverages = [];
+        this.roles = [];
+        this.currentRoleId = null;
         
         if (!this.modal) return;
         
@@ -506,15 +507,7 @@ class DevPriceModal {
     async loadRoles() {
         try {
             const response = await fetch('/dev/roles');
-            const roles = await response.json();
-            
-            this.roleSelect.innerHTML = '<option value="">Select a role...</option>';
-            roles.forEach(role => {
-                const option = document.createElement('option');
-                option.value = role.id;
-                option.textContent = role.name;
-                this.roleSelect.appendChild(option);
-            });
+            this.roles = await response.json();
         } catch (error) {
             console.error('Failed to load roles:', error);
         }
@@ -530,22 +523,61 @@ class DevPriceModal {
     }
     
     setupEventListeners() {
-        // Load prices immediately when modal opens
-        this.modal.addEventListener('shown.bs.modal', () => this.loadPrices());
+        // Load prices when modal opens
+        this.modal.addEventListener('shown.bs.modal', () => this.showRoleSelection());
         this.saveBtn.addEventListener('click', () => this.savePrices());
         
         this.modal.addEventListener('hidden.bs.modal', () => {
             this.container.innerHTML = '<p class="text-muted">Loading prices...</p>';
             this.saveBtn.style.display = 'none';
             this.hideAlert();
+            this.currentRoleId = null;
         });
     }
     
-    async loadPrices() {
-        // Load existing unified prices
+    showRoleSelection() {
+        let html = '<h6>Select a role to manage prices:</h6>';
+        html += '<div class="row mb-3">';
+        
+        this.roles.forEach(role => {
+            html += `
+                <div class="col-md-6 mb-2">
+                    <button class="btn btn-outline-primary w-100 role-select-btn" 
+                            data-role-id="${role.id}" 
+                            data-role-name="${role.name}">
+                        <i class="fas fa-user-tag"></i> ${role.name}
+                    </button>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        html += '<div class="alert alert-info">';
+        html += '<i class="fas fa-info-circle"></i> ';
+        html += '<strong>Tip:</strong> You can set different prices for each role. ';
+        html += 'Click on a role above to manage its specific prices.';
+        html += '</div>';
+        
+        this.container.innerHTML = html;
+        this.saveBtn.style.display = 'none';
+        
+        // Add event listeners to role buttons
+        this.container.querySelectorAll('.role-select-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const roleId = parseInt(e.target.dataset.roleId);
+                const roleName = e.target.dataset.roleName;
+                this.loadPricesForRole(roleId, roleName);
+            });
+        });
+    }
+    
+    async loadPricesForRole(roleId, roleName) {
+        this.currentRoleId = roleId;
+        
+        // Load existing prices for this role
         let existingPrices = {};
         try {
-            const response = await fetch('/dev/prices');
+            const response = await fetch(`/dev/prices?role_id=${roleId}`);
             const prices = await response.json();
             existingPrices = prices.reduce((acc, price) => {
                 acc[price.beverage_id] = price.price_cents;
@@ -555,8 +587,18 @@ class DevPriceModal {
             console.error('Failed to load existing prices:', error);
         }
         
-        // Create unified price form
-        let html = '<h6>Set unified prices for all roles (in cents):</h6>';
+        // Create price form for this role
+        let html = `
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6><i class="fas fa-user-tag"></i> Prices for Role: <strong>${roleName}</strong></h6>
+                <button class="btn btn-outline-secondary btn-sm" onclick="devPriceModal.showRoleSelection()">
+                    <i class="fas fa-arrow-left"></i> Back to Roles
+                </button>
+            </div>
+        `;
+        
+        html += '<div class="row mb-2"><div class="col-6"><strong>Item</strong></div><div class="col-6"><strong>Price (cents)</strong></div></div>';
+        
         this.beverages.forEach(beverage => {
             const existingPrice = existingPrices[beverage.id] || '';
             const categoryIcon = beverage.category === 'food' ? '🍽️' : '🥤';
@@ -575,11 +617,24 @@ class DevPriceModal {
             `;
         });
         
+        html += `
+            <div class="mt-3">
+                <button class="btn btn-outline-warning btn-sm" onclick="devPriceModal.setUnifiedPrices()">
+                    <i class="fas fa-copy"></i> Copy these prices to all other roles
+                </button>
+            </div>
+        `;
+        
         this.container.innerHTML = html;
         this.saveBtn.style.display = 'block';
     }
     
     async savePrices() {
+        if (!this.currentRoleId) {
+            this.showAlert('Please select a role first', 'danger');
+            return;
+        }
+        
         const priceInputs = this.container.querySelectorAll('.price-input');
         
         const prices = [];
@@ -608,6 +663,7 @@ class DevPriceModal {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    role_id: this.currentRoleId,
                     prices: prices
                 })
             });
@@ -629,6 +685,58 @@ class DevPriceModal {
         } finally {
             this.saveBtn.disabled = false;
             this.saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Prices';
+        }
+    }
+    
+    async setUnifiedPrices() {
+        if (!this.currentRoleId) {
+            this.showAlert('Please select a role first', 'danger');
+            return;
+        }
+        
+        const priceInputs = this.container.querySelectorAll('.price-input');
+        
+        const prices = [];
+        priceInputs.forEach(input => {
+            const beverageId = input.dataset.beverageId;
+            const priceCents = input.value;
+            
+            if (priceCents && priceCents > 0) {
+                prices.push({
+                    beverage_id: parseInt(beverageId),
+                    price_cents: parseInt(priceCents)
+                });
+            }
+        });
+        
+        if (prices.length === 0) {
+            this.showAlert('Please set at least one price first', 'danger');
+            return;
+        }
+        
+        if (!confirm('This will copy the current prices to ALL other roles. Are you sure?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch('/dev/prices_unified', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prices: prices
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showAlert(result.message, 'success');
+            } else {
+                this.showAlert(result.error || 'Failed to set unified prices', 'danger');
+            }
+        } catch (error) {
+            console.error('Error setting unified prices:', error);
+            this.showAlert('Network error. Please try again.', 'danger');
         }
     }
     
@@ -1068,10 +1176,30 @@ class DevDeleteModal {
     }
 }
 
+// Guests Button Handler
+class GuestsButton {
+    constructor() {
+        this.guestsBtn = document.getElementById('guestsBtn');
+        this.init();
+    }
+    
+    init() {
+        if (this.guestsBtn) {
+            this.guestsBtn.addEventListener('click', () => this.handleGuestsClick());
+        }
+    }
+    
+    handleGuestsClick() {
+        // Navigate to the guests page
+        window.location.href = '/guests';
+    }
+}
+
 // Initialize everything when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
     new UserSearch();
     new UserClickHandler();
+    new GuestsButton();
     new DevUserModal();
     new DevBeverageModal();
     new DevPriceModal();
@@ -1084,4 +1212,5 @@ document.addEventListener('DOMContentLoaded', function() {
     window.devRoleModal = new DevRoleModal();
     window.devUserManagementModal = new DevUserManagementModal();
     window.devItemModal = new DevItemModal();
+    window.devPriceModal = new DevPriceModal();
 });

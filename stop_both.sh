@@ -36,3 +36,5 @@ pkill -f flask 2>/dev/null || true
 echo "🧹 Cleanup completed!"
 echo "📋 Remaining Flask processes:"
 ps aux | grep flask | grep -v grep || echo "   None"
+
+

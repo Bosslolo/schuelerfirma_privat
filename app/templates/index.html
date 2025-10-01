@@ -25,7 +25,7 @@
     <div class="container">
         <div class="main-container">
             {% if is_dev %}
-            <div class="mb-3">
+            <div class="admin-tools">
                 <div class="btn-group mb-2" role="group">
                     <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
                         <i class="fas fa-user-plus"></i> Add User
@@ -51,8 +51,42 @@
                         <i class="fas fa-trash"></i> Delete Data
                     </button>
                 </div>
+                <div class="btn-group mt-2" role="group">
+                    <a href="{{ url_for('routes.monthly_report') }}" class="btn btn-outline-info">
+                        <i class="fas fa-chart-bar"></i> Monthly Report
+                    </a>
+                </div>
             </div>
             {% endif %}
+            
+            <!-- Top Supporter Display -->
+            {% if top_spender %}
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="top-supporter">
+                        <div class="top-supporter-title">
+                            <i class="fas fa-crown top-supporter-icon"></i>
+                            Nummer eins CSH supporter
+                            <i class="fas fa-crown top-supporter-icon"></i>
+                        </div>
+                        <div class="top-supporter-name">
+                            {{ top_spender.first_name }} {{ top_spender.last_name }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Guests Button -->
+            <div class="row mb-3">
+                <div class="col-12 text-center">
+                    <button class="btn btn-outline-primary btn-lg guests-btn" id="guestsBtn">
+                        <i class="fas fa-user-friends"></i>
+                        Guests
+                    </button>
+                </div>
+            </div>
+            
             <!-- Fuzzy Search Bar -->
             <div class="row mb-4">
                 <div class="col-12">
@@ -90,9 +124,7 @@
                     <div class="empty-state">
                         <i class="fas fa-info-circle"></i>
                         <h4>No users found</h4>
-                        <p>Please wait 10 seconds and refresh the page. If the problem persists, please contact the administrator. 
-                            Julian Domenig +41 78 721 27 91
-                        </p>
+                        <p>Please wait 10 seconds and refresh the page. If the problem persists, please contact the administrator.</p>
                     </div>
                 </div>
                 {% endif %}
@@ -214,7 +246,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="setPricesModalLabel">
-                        <i class="fas fa-euro-sign"></i> Set Beverage Prices (Development)
+                        <i class="fas fa-euro-sign"></i> Manage Role-Specific Prices (Development)
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>

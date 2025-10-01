@@ -10,14 +10,8 @@ import os
 bp = Blueprint("routes", __name__)
 
 def check_invoice_exists(user_id):
-    """
-    Get or create an invoice for the user and current month.
-    Returns the invoice object.
-    """
-    # Get current month and year
+    """Get or create an invoice for the user and current month."""
     current_month_year = date.today().replace(day=1)
-    
-    # Check if invoice already exists for this user and month
     existing_invoice = invoices.query.filter_by(
         user_id=user_id,
         period=current_month_year
@@ -26,15 +20,11 @@ def check_invoice_exists(user_id):
     if existing_invoice:
         return existing_invoice
 
-    # Create new invoice for current month
     user = users.query.get(user_id)
     if not user:
         raise ValueError(f"User with ID {user_id} not found")
     
-    # Count the number of invoices for the current month
     count = invoices.query.filter_by(period=current_month_year).count()
-
-    # Generate unique invoice name: "INV-YYYY-MM_count"
     invoice_name = f"INV-{current_month_year.strftime('%Y-%m')}_{count + 1}"
 
     new_invoice = invoices(
@@ -95,14 +85,27 @@ def index():
     # Extract just the user objects for template
     sorted_users = [user_role_consumption[0] for user_role_consumption in users_with_consumption]
     
-    is_dev = os.getenv('FLASK_ENV') == 'development'
-    return render_template("index.html", users=sorted_users, is_dev=is_dev)
+    # Get top spender by money (all time)
+    top_spender = db.session.query(
+        users.first_name,
+        users.last_name,
+        func.sum(consumptions.quantity * consumptions.unit_price_cents).label('total_spent_cents')
+    ).join(consumptions, users.id == consumptions.user_id)\
+     .group_by(users.id, users.first_name, users.last_name)\
+     .order_by(func.sum(consumptions.quantity * consumptions.unit_price_cents).desc())\
+     .first()
+    
+    # Check if we're in admin mode (development mode OR explicitly set to admin)
+    is_dev = (os.getenv('FLASK_ENV') == 'development' or 
+              os.getenv('FLASK_APP_MODE') == 'admin')
+    return render_template("index.html", users=sorted_users, is_dev=is_dev, top_spender=top_spender)
 
 
 @bp.route("/dev/add_user", methods=["GET", "POST"])
 def dev_add_user():
     """Development-only simple user creation form."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
 
     # Ensure at least one role exists
@@ -172,7 +175,8 @@ def dev_add_user():
 @bp.route("/dev/roles", methods=["GET"])
 def dev_get_roles():
     """Development-only endpoint to get available roles."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     available_roles = roles.query.all()
@@ -188,7 +192,8 @@ def dev_get_roles():
 @bp.route("/dev/beverages", methods=["GET", "POST"])
 def dev_beverages():
     """Development-only beverage management."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     if request.method == "POST":
@@ -222,67 +227,142 @@ def dev_beverages():
 
 @bp.route("/dev/prices", methods=["GET", "POST"])
 def dev_prices():
-    """Development-only unified price management."""
-    if os.getenv('FLASK_ENV') != 'development':
+    """Development-only role-specific price management."""
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     if request.method == "POST":
         data = request.get_json()
+        role_id = data.get("role_id")
         prices = data.get("prices", [])  # Array of {beverage_id, price_cents}
+        
+        if not role_id:
+            return jsonify({"success": False, "error": "Role ID is required"}), 400
         
         if not prices:
             return jsonify({"success": False, "error": "Prices are required"}), 400
         
         try:
-            # Get all roles
-            all_roles = roles.query.all()
+            # Validate role exists
+            role = roles.query.get(role_id)
+            if not role:
+                return jsonify({"success": False, "error": "Role not found"}), 404
             
-            # Update prices for ALL roles
-            for role in all_roles:
-                # Remove existing prices for this role
-                beverage_prices.query.filter_by(role_id=role.id).delete()
+            # Remove existing prices for this role
+            beverage_prices.query.filter_by(role_id=role_id).delete()
+            
+            # Add new prices for this role
+            for price_data in prices:
+                beverage_id = price_data.get("beverage_id")
+                price_cents = price_data.get("price_cents")
                 
-                # Add new prices for this role
-                for price_data in prices:
-                    beverage_id = price_data.get("beverage_id")
-                    price_cents = price_data.get("price_cents")
-                    
-                    if beverage_id and price_cents is not None:
-                        new_price = beverage_prices(
-                            role_id=role.id,
-                            beverage_id=beverage_id,
-                            price_cents=int(price_cents)
-                        )
-                        db.session.add(new_price)
+                if beverage_id and price_cents is not None:
+                    new_price = beverage_prices(
+                        role_id=role_id,
+                        beverage_id=beverage_id,
+                        price_cents=int(price_cents)
+                    )
+                    db.session.add(new_price)
             
             db.session.commit()
             
             return jsonify({
                 "success": True,
-                "message": f"Unified prices updated successfully for all {len(all_roles)} roles"
+                "message": f"Prices updated successfully for role '{role.name}'"
             })
         except Exception as e:
             db.session.rollback()
             return jsonify({"success": False, "error": f"Failed to update prices: {str(e)}"}), 500
     
-    # GET request - return unified prices (from first role as template)
+    # GET request - return prices for a specific role or all roles
     try:
-        first_role = roles.query.first()
-        if not first_role:
-            return jsonify([])
+        role_id = request.args.get('role_id', type=int)
         
-        existing_prices = beverage_prices.query.filter_by(role_id=first_role.id).all()
-        return jsonify([{
-            "beverage_id": price.beverage_id,
-            "price_cents": price.price_cents
-        } for price in existing_prices])
+        if role_id:
+            # Return prices for specific role
+            role = roles.query.get(role_id)
+            if not role:
+                return jsonify({"success": False, "error": "Role not found"}), 404
+            
+            existing_prices = beverage_prices.query.filter_by(role_id=role_id).all()
+            return jsonify([{
+                "beverage_id": price.beverage_id,
+                "price_cents": price.price_cents
+            } for price in existing_prices])
+        else:
+            # Return all roles with their prices
+            all_roles = roles.query.all()
+            result = []
+            
+            for role in all_roles:
+                role_prices = beverage_prices.query.filter_by(role_id=role.id).all()
+                result.append({
+                    "role_id": role.id,
+                    "role_name": role.name,
+                    "prices": [{
+                        "beverage_id": price.beverage_id,
+                        "price_cents": price.price_cents
+                    } for price in role_prices]
+                })
+            
+            return jsonify(result)
     except Exception as e:
         return jsonify({"success": False, "error": f"Failed to load prices: {str(e)}"}), 500
+
+@bp.route("/dev/prices_unified", methods=["POST"])
+def dev_prices_unified():
+    """Development-only unified price management - set same prices for all roles."""
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
+        abort(404)
+    
+    data = request.get_json()
+    prices = data.get("prices", [])  # Array of {beverage_id, price_cents}
+    
+    if not prices:
+        return jsonify({"success": False, "error": "Prices are required"}), 400
+    
+    try:
+        # Get all roles
+        all_roles = roles.query.all()
+        
+        if not all_roles:
+            return jsonify({"success": False, "error": "No roles found"}), 400
+        
+        # Update prices for ALL roles
+        for role in all_roles:
+            # Remove existing prices for this role
+            beverage_prices.query.filter_by(role_id=role.id).delete()
+            
+            # Add new prices for this role
+            for price_data in prices:
+                beverage_id = price_data.get("beverage_id")
+                price_cents = price_data.get("price_cents")
+                
+                if beverage_id and price_cents is not None:
+                    new_price = beverage_prices(
+                        role_id=role.id,
+                        beverage_id=beverage_id,
+                        price_cents=int(price_cents)
+                    )
+                    db.session.add(new_price)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True,
+            "message": f"Unified prices updated successfully for all {len(all_roles)} roles"
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": f"Failed to update prices: {str(e)}"}), 500
 
 @bp.route("/dev/roles_manage", methods=["GET", "POST"])
 def dev_roles_manage():
     """Development-only role management."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     if request.method == "POST":
@@ -318,7 +398,8 @@ def dev_roles_manage():
 @bp.route("/dev/delete_role/<int:role_id>", methods=["DELETE"])
 def dev_delete_role(role_id):
     """Development-only individual role deletion."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     try:
@@ -350,7 +431,8 @@ def dev_delete_role(role_id):
 @bp.route("/dev/delete_user/<int:user_id>", methods=["DELETE"])
 def dev_delete_user(user_id):
     """Development-only individual user deletion."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     try:
@@ -380,7 +462,8 @@ def dev_delete_user(user_id):
 @bp.route("/dev/users_manage", methods=["GET"])
 def dev_users_manage():
     """Development-only user management - get all users."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     try:
@@ -405,7 +488,8 @@ def dev_users_manage():
 @bp.route("/dev/delete_beverage/<int:beverage_id>", methods=["DELETE"])
 def dev_delete_beverage(beverage_id):
     """Development-only individual beverage deletion."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     try:
@@ -470,7 +554,8 @@ def dev_delete_beverage(beverage_id):
 @bp.route("/dev/delete_data", methods=["POST"])
 def dev_delete_data():
     """Development-only data deletion."""
-    if os.getenv('FLASK_ENV') != 'development':
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
         abort(404)
     
     data = request.get_json()
@@ -518,6 +603,49 @@ def dev_delete_data():
         db.session.rollback()
         return jsonify({"success": False, "error": f"Failed to delete data: {str(e)}"}), 500
 
+@bp.route("/guests")
+def guests():
+    """Guest entry page - allows beverage selection without a specific user."""
+    # Create a temporary guest user object for the template
+    guest_user = type('GuestUser', (), {
+        'id': 0,
+        'first_name': 'Guest',
+        'last_name': '',
+        'email': '',
+        'role': type('GuestRole', (), {
+            'id': 1,  # Default to role ID 1 (should be "Guests" role)
+            'name': 'Guests'
+        })()
+    })()
+    
+    # Fetch all active beverages
+    all_beverages = beverages.query.filter_by(status=True).all()
+    
+    # Fetch beverage prices for the guest role (role_id = 1)
+    beverage_prices_for_role = beverage_prices.query.filter_by(role_id=1).all()
+    
+    # Create a dictionary for easy price lookup
+    price_lookup = {bp.beverage_id: bp for bp in beverage_prices_for_role}
+    
+    # Convert guest user to dictionary for JSON serialization
+    user_dict = {
+        'id': guest_user.id,
+        'first_name': guest_user.first_name,
+        'last_name': guest_user.last_name,
+        'email': guest_user.email,
+        'role': {
+            'id': guest_user.role.id,
+            'name': guest_user.role.name
+        }
+    }
+    
+    return render_template("entries.html", 
+                         user=guest_user,
+                         beverages=all_beverages,
+                         price_lookup=price_lookup,
+                         consumptions=[],
+                         user_data=user_dict)
+
 @bp.route("/entries")
 def entries():
     user_id = request.args.get('user_id', type=int)
@@ -533,12 +661,16 @@ def entries():
         # Redirect to index if user not found
         return redirect(url_for('routes.index'))
     
-    # Fetch user's beverage consumptions with counts per beverage
+    # Fetch user's beverage consumptions with counts per beverage (CURRENT MONTH ONLY)
+    # Users should only see their current month consumption, not historical data
+    current_month = date.today().replace(day=1)
     consumption_results = db.session.query(
         consumptions.beverage_id,
         func.count(consumptions.id).label('count'),
         func.sum(consumptions.quantity).label('total_quantity')
-    ).filter_by(user_id=user_id).group_by(consumptions.beverage_id).all()
+    ).filter_by(user_id=user_id)\
+     .filter(consumptions.created_at >= current_month)\
+     .group_by(consumptions.beverage_id).all()
     
     # Convert to list of dictionaries for JSON serialization
     user_consumptions = []
@@ -734,3 +866,126 @@ def add_consumption():
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Failed to add consumption: {str(e)}"}), 500
+
+@bp.route("/admin_consumption_history")
+def admin_consumption_history():
+    """Admin-only route to view historical consumption data for a specific user."""
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
+        abort(404)
+    
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        return jsonify({"error": "User ID required"}), 400
+    
+    # Get all historical consumption for this user (no date filter)
+    consumption_results = db.session.query(
+        consumptions.beverage_id,
+        func.count(consumptions.id).label('count'),
+        func.sum(consumptions.quantity).label('total_quantity'),
+        func.min(consumptions.created_at).label('first_consumption'),
+        func.max(consumptions.created_at).label('last_consumption')
+    ).filter_by(user_id=user_id).group_by(consumptions.beverage_id).all()
+    
+    # Convert to list of dictionaries for JSON serialization
+    historical_consumptions = []
+    for result in consumption_results:
+        historical_consumptions.append({
+            'beverage_id': result.beverage_id,
+            'count': result.count,
+            'total_quantity': result.total_quantity,
+            'first_consumption': result.first_consumption.isoformat() if result.first_consumption else None,
+            'last_consumption': result.last_consumption.isoformat() if result.last_consumption else None
+        })
+    
+    return jsonify({
+        "user_id": user_id,
+        "historical_consumptions": historical_consumptions
+    })
+
+@bp.route("/monthly_report")
+def monthly_report():
+    """Monthly consumption report for all users."""
+    # Check if we're in admin mode
+    if not (os.getenv('FLASK_ENV') == 'development' or os.getenv('FLASK_APP_MODE') == 'admin'):
+        abort(404)
+    
+    # Get month and year from query parameters (default to current month)
+    year = request.args.get('year', date.today().year, type=int)
+    month = request.args.get('month', date.today().month, type=int)
+    
+    # Create date for the first day of the selected month
+    report_date = date(year, month, 1)
+    
+    # Get all consumptions for the selected month
+    month_consumptions = db.session.query(
+        users.first_name,
+        users.last_name,
+        users.email,
+        roles.name.label('role_name'),
+        beverages.name.label('beverage_name'),
+        beverages.category,
+        func.sum(consumptions.quantity).label('total_quantity'),
+        func.count(consumptions.id).label('consumption_count'),
+        func.sum(consumptions.quantity * consumptions.unit_price_cents).label('total_cost_cents'),
+        func.avg(consumptions.unit_price_cents).label('avg_price_cents')
+    ).join(roles, users.role_id == roles.id)\
+     .join(consumptions, users.id == consumptions.user_id)\
+     .join(beverages, consumptions.beverage_id == beverages.id)\
+     .filter(
+         consumptions.created_at >= report_date,
+         consumptions.created_at < date(year, month + 1, 1) if month < 12 else date(year + 1, 1, 1)
+     )\
+     .group_by(users.id, users.first_name, users.last_name, users.email, roles.name, beverages.id, beverages.name, beverages.category)\
+     .order_by(users.last_name, users.first_name, beverages.name)\
+     .all()
+    
+    # Get summary statistics
+    summary_stats = db.session.query(
+        func.count(func.distinct(users.id)).label('total_users'),
+        func.count(consumptions.id).label('total_consumptions'),
+        func.sum(consumptions.quantity).label('total_quantity'),
+        func.sum(consumptions.quantity * consumptions.unit_price_cents).label('total_revenue_cents')
+    ).join(consumptions, users.id == consumptions.user_id)\
+     .filter(
+         consumptions.created_at >= report_date,
+         consumptions.created_at < date(year, month + 1, 1) if month < 12 else date(year + 1, 1, 1)
+     )\
+     .first()
+    
+    # Get user summaries (total per user)
+    user_summaries = db.session.query(
+        users.id,
+        users.first_name,
+        users.last_name,
+        users.email,
+        roles.name.label('role_name'),
+        func.sum(consumptions.quantity).label('total_quantity'),
+        func.count(consumptions.id).label('total_consumptions'),
+        func.sum(consumptions.quantity * consumptions.unit_price_cents).label('total_cost_cents')
+    ).join(roles, users.role_id == roles.id)\
+     .join(consumptions, users.id == consumptions.user_id)\
+     .filter(
+         consumptions.created_at >= report_date,
+         consumptions.created_at < date(year, month + 1, 1) if month < 12 else date(year + 1, 1, 1)
+     )\
+     .group_by(users.id, users.first_name, users.last_name, users.email, roles.name)\
+     .order_by(func.sum(consumptions.quantity * consumptions.unit_price_cents).desc())\
+     .all()
+    
+    # Get available months for navigation
+    available_months = db.session.query(
+        func.extract('year', consumptions.created_at).label('year'),
+        func.extract('month', consumptions.created_at).label('month')
+    ).distinct()\
+     .order_by(func.extract('year', consumptions.created_at).desc(), func.extract('month', consumptions.created_at).desc())\
+     .all()
+    
+    return render_template("monthly_report.html", 
+                         consumptions=month_consumptions,
+                         summary_stats=summary_stats,
+                         user_summaries=user_summaries,
+                         available_months=available_months,
+                         current_year=year,
+                         current_month=month,
+                         report_date=report_date)

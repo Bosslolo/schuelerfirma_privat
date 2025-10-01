@@ -1,0 +1,92 @@
+# Server Production Setup
+# This uses different ports to avoid conflicts with existing services
+version: '3.8'
+
+services:
+  # Flask Admin Application (Production Mode)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.laptop
+    container_name: schuelerfirma_admin_server
+    ports:
+      - "5001:5000"  # Admin view
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app:cached
+      - ./instance:/app/instance
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      - DATABASE_URL=postgresql://user:password@db:5432/db
+      - SECRET_KEY=production-secret-key-change-this
+      - FLASK_APP_MODE=admin
+    command: flask --app app/wsgi.py run --host=0.0.0.0 --port=5000
+    restart: unless-stopped
+
+  # Flask User Application (Production Mode)
+  user:
+    build:
+      context: .
+      dockerfile: Dockerfile.laptop
+    container_name: schuelerfirma_user_server
+    ports:
+      - "5002:5000"  # User view
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app:cached
+      - ./instance:/app/instance
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      - DATABASE_URL=postgresql://user:password@db:5432/db
+      - SECRET_KEY=production-secret-key-change-this
+      - FLASK_APP_MODE=user
+    command: flask --app app/wsgi.py run --host=0.0.0.0 --port=5000
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  db:
+    image: postgres:16
+    container_name: schuelerfirma_db_server
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups  # For database backups
+    ports:
+      - "5433:5432"  # Different port to avoid conflicts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Adminer Database Management
+  adminer:
+    image: adminer:4
+    container_name: schuelerfirma_adminer_server
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: schuelerfirma_redis_server
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local

@@ -203,13 +203,9 @@ body {
     color: #667eea;
 }
 
-/* Different colors for different sections */
+/* Section title styling */
 .beverage-section .section-title i {
     color: #667eea; /* Blue for beverages */
-}
-
-.food-section .section-title i {
-    color: #f093fb; /* Pink for food */
 }
 
 /* PIN Management Layout */
@@ -236,36 +232,14 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Selection Container - Side by Side Layout */
+/* Selection Container - Full Width Layout */
 .selection-container {
-    display: flex;
-    gap: 2rem;
     margin-bottom: 2rem;
 }
 
 /* Beverage Section */
 .beverage-section {
-    flex: 1;
     margin-bottom: 0;
-}
-
-/* Food Section */
-.food-section {
-    flex: 1;
-    margin-bottom: 0;
-}
-
-/* Responsive Design - Stack on smaller screens */
-@media (max-width: 768px) {
-    .selection-container {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    .beverage-section,
-    .food-section {
-        margin-bottom: 1rem;
-    }
 }
 
 .beverage-list {

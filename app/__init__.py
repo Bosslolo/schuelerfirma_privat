@@ -36,6 +36,22 @@ def create_app():
             print(f"⚠️  Could not add category column: {e}")
             db.session.rollback()
         
+        # Ensure Guests role exists
+        try:
+            from .models import roles
+            guests_role = roles.query.filter_by(name="Guests").first()
+            if not guests_role:
+                print("🔄 Creating Guests role...")
+                guests_role = roles(name="Guests")
+                db.session.add(guests_role)
+                db.session.commit()
+                print("✅ Guests role created successfully")
+            else:
+                print("✅ Guests role already exists")
+        except Exception as e:
+            print(f"⚠️  Could not create Guests role: {e}")
+            db.session.rollback()
+        
         print("✅ Database tables created/verified on startup")
 
     return app
